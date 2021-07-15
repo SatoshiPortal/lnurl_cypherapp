@@ -1,0 +1,18 @@
+{
+    "LOG": "DEBUG",
+    "BASE_DIR": "/lnurl",
+    "DATA_DIR": "data",
+    "DB_NAME": "lnurl.sqlite",
+    "URL_API_SERVER": "http://lnurl",
+    "URL_API_PORT": 8000,
+    "URL_API_CTX": "/api",
+    "SESSION_TIMEOUT": 600,
+    "CN_URL": "https://gatekeeper:2009/v0",
+    "CN_API_ID": "003",
+    "CN_API_KEY": "39b83c35972aeb81a242bfe189dc0a22da5ac6cbb64072b492f2d46519a97618",
+    "LN_SERVICE_SERVER": "http://.onion",
+    "LN_SERVICE_PORT": 80,
+    "LN_SERVICE_CTX": "/lnurl",
+    "LN_SERVICE_WITHDRAW_REQUEST_CTX": "/withdrawRequest",
+    "LN_SERVICE_WITHDRAW_CTX": "/withdraw"
+}

@@ -1,0 +1,26 @@
+version: "3"
+
+services:
+  lnurl:
+    environment:
+      - "TRACING=1"
+      - "CYPHERNODE_URL=https://gatekeeper:${GATEKEEPER_PORT}"
+    image: cyphernode/lnurl:v0.1.0
+    entrypoint: ["npm", "run", "start:dev"]
+    volumes:
+      - "$APP_SCRIPT_PATH/data:/lnurl/data"
+      - "$GATEKEEPER_DATAPATH/certs/cert.pem:/lnurl/cert.pem:ro"
+      - "$LOGS_DATAPATH:/lnurl/logs"
+    networks:
+      - cyphernodeappsnet
+    restart: always
+    labels:
+      - "traefik.docker.network=cyphernodeappsnet"
+      - "traefik.frontend.rule=PathPrefixStrip:/lnurl"
+      - "traefik.frontend.passHostHeader=true"
+      - "traefik.enable=true"
+      - "traefik.port=8000"
+      - "traefik.frontend.auth.basic.users=<username>:$$2y$$05$$LFKGjKBkmWbI5RUFBqwonOWEcen4Yu.mU139fvD3flWcP8gUqLLaC"
+networks:
+  cyphernodeappsnet:
+    external: true
