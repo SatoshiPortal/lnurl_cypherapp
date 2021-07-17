@@ -85,7 +85,7 @@ kexkey@AlcodaZ-2 ~ % docker exec -it lnurl ash
 
 
 
-sqlite3 data/lnurl.sqlite -header "select * from lnurl_withdraw_request"
+sqlite3 data/lnurl.sqlite -header "select * from lnurl_withdraw"
 
   amount: number;
   description?: string;
@@ -93,10 +93,22 @@ sqlite3 data/lnurl.sqlite -header "select * from lnurl_withdraw_request"
   secretToken: string;
   webhookUrl?: string;
 
-curl -d '{"id":0,"method":"createLnurlWithdraw","params":{"amount":0.01,"description":"desc01","expiration":"2021-07-15 12:12","secretToken":"abc01","webhookUrl":"https://webhookUrl01"}}' -H "Content-Type: application/json" localhost:8000/api
-{"id":0,"result":{"amount":0.01,"description":"desc01","expiration":"2021-07-15 12:12","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"http://.onion/lnurlWithdraw?s=abc01","withdrawnDetails":null,"withdrawnTimestamp":null,"lnurlWithdrawId":1,"createdAt":"2021-07-15 15:42:43","updatedAt":"2021-07-15 15:42:43"}}
+curl -d '{"id":0,"method":"createLnurlWithdraw","params":{"amount":0.01,"description":"desc02","expiration":"2021-07-15 12:12","secretToken":"abc02","webhookUrl":"https://webhookUrl01"}}' -H "Content-Type: application/json" localhost:8000/api
+{"id":0,"result":{"amount":0.01,"description":"desc01","expiration":"2021-07-15 12:12","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
 
-sqlite3 data/lnurl.sqlite -header "select * from lnurl_withdraw_request"
-id|amount|description|expiration|secret_token|webhook_url|lnurl|withdrawn_details|withdrawn_ts|created_ts|updated_ts
-1|0.01|desc01|2021-07-15 12:12|abc01|https://webhookUrl01|http://.onion/lnurlWithdraw?s=abc01|||2021-07-15 15:42:43|2021-07-15 15:42:43
+sqlite3 data/lnurl.sqlite -header "select * from lnurl_withdraw"
+id|amount|description|expiration|secret_token|webhook_url|lnurl|withdrawn_details|withdrawn_ts|active|created_ts|updated_ts
+1|0.01|desc01|2021-07-15 12:12|abc01|https://webhookUrl01|LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K|||1|2021-07-15 19:42:06|2021-07-15 19:42:06
 
+curl -d '{"id":0,"method":"decodeBech32","params":{"s":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXGXE8Q93"}}' -H "Content-Type: application/json" localhost:8000/api
+{"id":0,"result":"http://.onion:80/lnurl/withdrawRequest?s=abc01"}
+
+curl localhost:8000/withdrawRequest?s=abc02
+{"tag":"withdrawRequest","callback":"http://.onion:80/lnurl/withdraw","k1":"abc01","defaultDescription":"desc01","minWithdrawable":0.01,"maxWithdrawable":0.01}
+
+curl localhost:8000/withdraw?k1=abc03\&pr=lnbcrt123456780p1ps0pf5ypp5lfskvgsdef4hpx0lndqe69ypu0rxl5msndkcnlm8v6l5p75xzd6sdq2v3jhxcesxvxqyjw5qcqp2sp5f42mrc40eh4ntmqhgxvk74m2w3q25fx9m8d9wn6d20ahtfy6ju8q9qy9qsqw4khcr86dlg66nz3ds6nhxpsw9z0ugxfkequtyf8qv7q6gdvztdhsfp36uazsz35xp37lfmt0tqsssrew0wr0htfdkhjpwdagnzvc6qp2ynxvd
+{"status":"OK"}
+
+==================
+
+docker run --rm -it --name lnurl -v "$PWD:/lnurl" -v "$PWD/cypherapps/data:/lnurl/data" -v "$PWD/cypherapps/data/logs:/lnurl/logs" -v "/Users/kexkey/dev/cn-dev/dist/cyphernode/gatekeeper/certs/cert.pem:/lnurl/cert.pem:ro" --network cyphernodeappsnet --entrypoint ash lnurl

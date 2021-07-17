@@ -1,4 +1,4 @@
-export default interface IRespLnserviceStatus {
+export default interface IRespLnServiceStatus {
   status?: string;
   reason?: string;
 }

@@ -1,6 +1,6 @@
 import logger from "./Log2File";
 import axios, { AxiosRequestConfig } from "axios";
-import { bech32 } from "bech32"
+import { bech32 } from "bech32";
 
 class Utils {
   static async post(
@@ -67,31 +67,25 @@ class Utils {
     }
   }
 
-  static async encodeBech32(
-    str: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<String> {
-    logger.info(
-      "Utils.encodeBech32:",
-      str
-    );
+  static async encodeBech32(str: string): Promise<string> {
+    logger.info("Utils.encodeBech32:", str);
 
-    let lnurlBech32 = bech32.encode("LNURL", bech32.toWords(Buffer.from(str, 'utf8')), 2000);
+    const lnurlBech32 = bech32.encode(
+      "LNURL",
+      bech32.toWords(Buffer.from(str, "utf8")),
+      2000
+    );
     logger.debug("lnurlBech32:", lnurlBech32);
 
     return lnurlBech32.toUpperCase();
   }
 
-  static async decodeBech32(
-    str: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Promise<String> {
-    logger.info(
-      "Utils.decodeBech32:",
-      str
-    );
+  static async decodeBech32(str: string): Promise<string> {
+    logger.info("Utils.decodeBech32:", str);
 
-    let lnurl = Buffer.from(bech32.fromWords(bech32.decode(str, 2000).words)).toString();
+    const lnurl = Buffer.from(
+      bech32.fromWords(bech32.decode(str, 2000).words)
+    ).toString();
 
     return lnurl;
   }

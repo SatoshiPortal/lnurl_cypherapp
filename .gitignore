@@ -108,3 +108,4 @@ build
 data
 !cypherapps/data
 *.sqlite
+*.pem

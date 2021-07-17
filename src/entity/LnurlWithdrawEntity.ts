@@ -2,14 +2,12 @@ import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
-  OneToMany,
   Index,
   CreateDateColumn,
   UpdateDateColumn,
-  Unique,
 } from "typeorm";
 
-// CREATE TABLE lnurl_withdraw_request (
+// CREATE TABLE lnurl_withdraw (
 //   id INTEGER PRIMARY KEY AUTOINCREMENT,
 //   amount REAL,
 //   description TEXT,
@@ -17,6 +15,7 @@ import {
 //   secret_token TEXT UNIQUE,
 //   webhook_url TEXT,
 //   lnurl TEXT,
+//   bolt11 TEXT,
 //   withdrawn_details TEXT,
 //   withdrawn_ts INTEGER,
 //   active INTEGER,
@@ -25,9 +24,10 @@ import {
 // );
 // CREATE INDEX idx_lnurl_withdraw_description ON lnurl_withdraw (description);
 // CREATE INDEX idx_lnurl_withdraw_lnurl ON lnurl_withdraw (lnurl);
+// CREATE INDEX idx_lnurl_withdraw_bolt11 ON lnurl_withdraw (bolt11);
 
-@Entity()
-export class LnurlWithdrawRequest {
+@Entity("lnurl_withdraw")
+export class LnurlWithdrawEntity {
   @PrimaryGeneratedColumn({ name: "id" })
   lnurlWithdrawId!: number;
 
@@ -50,6 +50,10 @@ export class LnurlWithdrawRequest {
   @Index("idx_lnurl_withdraw_lnurl")
   @Column({ type: "text", name: "lnurl", nullable: true })
   lnurl?: string;
+
+  @Index("idx_lnurl_withdraw_bolt11")
+  @Column({ type: "text", name: "bolt11", nullable: true })
+  bolt11?: string;
 
   @Column({ type: "text", name: "withdrawn_details", nullable: true })
   withdrawnDetails?: string;

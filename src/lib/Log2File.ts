@@ -1,7 +1,7 @@
 import { ILogObject, Logger } from "tslog";
-import { appendFileSync }  from "fs";
+import { appendFileSync } from "fs";
 
-function logToTransport(logObject: ILogObject) {
+function logToTransport(logObject: ILogObject): void {
   appendFileSync("logs/lnurl.log", JSON.stringify(logObject) + "\n");
 }
 

@@ -2,17 +2,17 @@ import logger from "./Log2File";
 import LnurlConfig from "../config/LnurlConfig";
 import { CyphernodeClient } from "./CyphernodeClient";
 import { LnurlDB } from "./LnurlDB";
-import {
-  ErrorCodes,
-  IResponseMessage,
-} from "../types/jsonrpc/IResponseMessage";
+import { ErrorCodes } from "../types/jsonrpc/IResponseMessage";
 import IReqCreateLnurlWithdraw from "../types/IReqCreateLnurlWithdraw";
-import IRespCreateLnurlWithdraw from "../types/IRespCreateLnurlWithdraw";
+import IRespGetLnurlWithdraw from "../types/IRespLnurlWithdraw";
 import { CreateLnurlWithdrawValidator } from "../validators/CreateLnurlWithdrawValidator";
-import { LnurlWithdrawRequest } from "../entity/LnurlWithdrawRequest";
-import IRespLnserviceWithdrawRequest from "../types/IRespLnserviceWithdrawRequest";
-import IRespLnserviceStatus from "../types/IRespLnserviceStatus";
+import { LnurlWithdrawEntity } from "../entity/LnurlWithdrawEntity";
+import IRespLnServiceWithdrawRequest from "../types/IRespLnServiceWithdrawRequest";
+import IRespLnServiceStatus from "../types/IRespLnServiceStatus";
 import IReqLnurlWithdraw from "../types/IReqLnurlWithdraw";
+import { Utils } from "./Utils";
+import IRespLnPay from "../types/cyphernode/IRespLnPay";
+import { LnServiceWithdrawValidator } from "../validators/LnServiceWithdrawValidator";
 
 class LnurlWithdraw {
   private _lnurlConfig: LnurlConfig;
@@ -34,41 +34,56 @@ class LnurlWithdraw {
 
   async createLnurlWithdraw(
     reqCreateLnurlWithdraw: IReqCreateLnurlWithdraw
-  ): Promise<IRespCreateLnurlWithdraw> {
+  ): Promise<IRespGetLnurlWithdraw> {
     logger.info(
       "LnurlWithdraw.createLnurlWithdraw, reqCreateLnurlWithdraw:",
       reqCreateLnurlWithdraw
     );
 
-    const response: IRespCreateLnurlWithdraw = {};
+    const response: IRespGetLnurlWithdraw = {};
 
     if (CreateLnurlWithdrawValidator.validateRequest(reqCreateLnurlWithdraw)) {
       // Inputs are valid.
       logger.debug("LnurlWithdraw.createLnurlWithdraw, Inputs are valid.");
 
-      let lnurlWithdrawRequest: LnurlWithdrawRequest;
-      let lnurl = this._lnurlConfig.LN_SERVICE_SERVER + ":" + this._lnurlConfig.LN_SERVICE_PORT + this._lnurlConfig.LN_SERVICE_CTX + this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX + "?s=" + reqCreateLnurlWithdraw.secretToken;
-
-      lnurlWithdrawRequest = await this._lnurlDB.saveLnurlWithdrawRequest(
-        Object.assign(reqCreateLnurlWithdraw as LnurlWithdrawRequest, { lnurl: lnurl })
+      const lnurl = await Utils.encodeBech32(
+        this._lnurlConfig.LN_SERVICE_SERVER +
+          ":" +
+          this._lnurlConfig.LN_SERVICE_PORT +
+          this._lnurlConfig.LN_SERVICE_CTX +
+          this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX +
+          "?s=" +
+          reqCreateLnurlWithdraw.secretToken
       );
 
-      if (lnurlWithdrawRequest) {
-        logger.debug("LnurlWithdraw.createLnurlWithdraw, lnurlWithdrawRequest created.");
+      const lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+        Object.assign(reqCreateLnurlWithdraw as LnurlWithdrawEntity, {
+          lnurl: lnurl,
+        })
+      );
 
-        response.result = lnurlWithdrawRequest;
+      if (lnurlWithdrawEntity) {
+        logger.debug(
+          "LnurlWithdraw.createLnurlWithdraw, lnurlWithdraw created."
+        );
+
+        response.result = lnurlWithdrawEntity;
       } else {
-        // LnurlWithdrawRequest not created
-        logger.debug("LnurlWithdraw.createLnurlWithdraw, LnurlWithdrawRequest not created.");
+        // LnurlWithdraw not created
+        logger.debug(
+          "LnurlWithdraw.createLnurlWithdraw, LnurlWithdraw not created."
+        );
 
         response.error = {
           code: ErrorCodes.InvalidRequest,
-          message: "LnurlWithdrawRequest not created",
+          message: "LnurlWithdraw not created",
         };
       }
     } else {
       // There is an error with inputs
-      logger.debug("LnurlWithdraw.createLnurlWithdraw, there is an error with inputs.");
+      logger.debug(
+        "LnurlWithdraw.createLnurlWithdraw, there is an error with inputs."
+      );
 
       response.error = {
         code: ErrorCodes.InvalidRequest,
@@ -79,22 +94,31 @@ class LnurlWithdraw {
     return response;
   }
 
-  async processLnurlWithdrawRequest(secretToken: string): Promise<IRespLnserviceWithdrawRequest> {
-    logger.info("LnurlWithdraw.processLnurlWithdrawRequest:", secretToken);
+  async lnServiceWithdrawRequest(
+    secretToken: string
+  ): Promise<IRespLnServiceWithdrawRequest> {
+    logger.info("LnurlWithdraw.lnServiceWithdrawRequest:", secretToken);
 
-    let result: IRespLnserviceWithdrawRequest;
-    const lnurlWithdrawRequest = await this._lnurlDB.getLnurlWithdrawRequestBySecret(secretToken);
-    logger.debug("lnurlWithdrawRequest:", lnurlWithdrawRequest);
+    let result: IRespLnServiceWithdrawRequest;
+    const lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawBySecret(
+      secretToken
+    );
+    logger.debug("lnurlWithdrawEntity:", lnurlWithdrawEntity);
 
-    if (lnurlWithdrawRequest != null && lnurlWithdrawRequest.active) {
+    if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
       result = {
         tag: "withdrawRequest",
-        callback: this._lnurlConfig.LN_SERVICE_SERVER + ":" + this._lnurlConfig.LN_SERVICE_PORT + this._lnurlConfig.LN_SERVICE_CTX + this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
-        k1: lnurlWithdrawRequest.secretToken,
-        defaultDescription: lnurlWithdrawRequest.description,
-        minWithdrawable: lnurlWithdrawRequest.amount,
-        maxWithdrawable: lnurlWithdrawRequest.amount
-      }
+        callback:
+          this._lnurlConfig.LN_SERVICE_SERVER +
+          ":" +
+          this._lnurlConfig.LN_SERVICE_PORT +
+          this._lnurlConfig.LN_SERVICE_CTX +
+          this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
+        k1: lnurlWithdrawEntity.secretToken,
+        defaultDescription: lnurlWithdrawEntity.description,
+        minWithdrawable: lnurlWithdrawEntity.amount,
+        maxWithdrawable: lnurlWithdrawEntity.amount,
+      };
     } else {
       result = { status: "ERROR", reason: "Invalid k1 value" };
     }
@@ -102,16 +126,52 @@ class LnurlWithdraw {
     return result;
   }
 
-  async processLnurlWithdraw(params: IReqLnurlWithdraw): Promise<IRespLnserviceStatus> {
-    logger.info("LnurlWithdraw.processLnurlWithdraw:", params);
+  async lnServiceWithdraw(
+    params: IReqLnurlWithdraw
+  ): Promise<IRespLnServiceStatus> {
+    logger.info("LnurlWithdraw.lnServiceWithdraw:", params);
 
-    let result: IRespLnserviceStatus;
-    const lnurlWithdrawRequest = await this._lnurlDB.getLnurlWithdrawRequestBySecret(params.k1);
+    let result: IRespLnServiceStatus;
 
-    if (lnurlWithdrawRequest != null && lnurlWithdrawRequest.active) {
-      result = { status: "OK" };
+    if (LnServiceWithdrawValidator.validateRequest(params)) {
+      // Inputs are valid.
+      logger.debug("LnurlWithdraw.lnServiceWithdraw, Inputs are valid.");
+
+      let lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawBySecret(
+        params.k1
+      );
+      lnurlWithdrawEntity.bolt11 = params.pr;
+      lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+        lnurlWithdrawEntity
+      );
+
+      if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
+        const resp: IRespLnPay = await this._cyphernodeClient.lnPay({
+          bolt11: params.pr,
+          expectedMsatoshi: lnurlWithdrawEntity.amount,
+          expectedDescription: lnurlWithdrawEntity.description,
+        });
+        if (resp.error) {
+          result = { status: "ERROR", reason: resp.error.message };
+        } else {
+          result = { status: "OK" };
+        }
+      } else {
+        result = {
+          status: "ERROR",
+          reason: "Invalid k1 value or inactive lnurlWithdrawRequest",
+        };
+      }
     } else {
-      result = { status: "ERROR", reason: "Invalid k1 value" };
+      // There is an error with inputs
+      logger.debug(
+        "LnurlWithdraw.lnServiceWithdraw, there is an error with inputs."
+      );
+
+      result = {
+        status: "ERROR",
+        reason: "Invalid arguments",
+      };
     }
 
     return result;

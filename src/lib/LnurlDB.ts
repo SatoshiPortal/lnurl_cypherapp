@@ -1,8 +1,8 @@
 import logger from "./Log2File";
 import path from "path";
 import LnurlConfig from "../config/LnurlConfig";
-import { Connection, createConnection, IsNull } from "typeorm";
-import { LnurlWithdrawRequest } from "../entity/LnurlWithdrawRequest";
+import { Connection, createConnection } from "typeorm";
+import { LnurlWithdrawEntity } from "../entity/LnurlWithdrawEntity";
 
 class LnurlDB {
   private _db?: Connection;
@@ -32,26 +32,31 @@ class LnurlDB {
     return await createConnection({
       type: "sqlite",
       database: dbName,
-      entities: [LnurlWithdrawRequest],
+      entities: [LnurlWithdrawEntity],
       synchronize: true,
       logging: true,
     });
   }
 
-  async saveLnurlWithdrawRequest(lnurlWithdrawRequest: LnurlWithdrawRequest): Promise<LnurlWithdrawRequest> {
-    const lwr = await this._db?.manager.getRepository(LnurlWithdrawRequest).save(lnurlWithdrawRequest);
+  async saveLnurlWithdraw(
+    lnurlWithdraw: LnurlWithdrawEntity
+  ): Promise<LnurlWithdrawEntity> {
+    const lwr = await this._db?.manager
+      .getRepository(LnurlWithdrawEntity)
+      .save(lnurlWithdraw);
 
-    return lwr as LnurlWithdrawRequest;
+    return lwr as LnurlWithdrawEntity;
   }
 
-  async getLnurlWithdrawRequestBySecret(secretToken: string): Promise<LnurlWithdrawRequest> {
+  async getLnurlWithdrawBySecret(
+    secretToken: string
+  ): Promise<LnurlWithdrawEntity> {
     const wr = await this._db?.manager
-      .getRepository(LnurlWithdrawRequest)
+      .getRepository(LnurlWithdrawEntity)
       .findOne({ where: { secretToken } });
 
-    return wr as LnurlWithdrawRequest;
+    return wr as LnurlWithdrawEntity;
   }
-
 }
 
 export { LnurlDB };

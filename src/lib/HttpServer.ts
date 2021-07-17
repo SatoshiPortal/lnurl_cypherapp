@@ -11,7 +11,7 @@ import {
 } from "../types/jsonrpc/IResponseMessage";
 import { IRequestMessage } from "../types/jsonrpc/IRequestMessage";
 import { Utils } from "./Utils";
-import IRespCreateLnurlWithdraw from "../types/IRespCreateLnurlWithdraw";
+import IRespCreateLnurlWithdraw from "../types/IRespLnurlWithdraw";
 import IReqCreateLnurlWithdraw from "../types/IReqCreateLnurlWithdraw";
 import IReqLnurlWithdraw from "../types/IReqLnurlWithdraw";
 
@@ -32,9 +32,7 @@ class HttpServer {
   async loadConfig(): Promise<void> {
     logger.debug("loadConfig");
 
-    this._lnurlConfig = JSON.parse(
-      fs.readFileSync("data/config.json", "utf8")
-    );
+    this._lnurlConfig = JSON.parse(fs.readFileSync("data/config.json", "utf8"));
 
     this._lnurlWithdraw.configureLnurl(this._lnurlConfig);
   }
@@ -46,7 +44,9 @@ class HttpServer {
 
     const reqCreateLnurlWithdraw: IReqCreateLnurlWithdraw = params as IReqCreateLnurlWithdraw;
 
-    return await this._lnurlWithdraw.createLnurlWithdraw(reqCreateLnurlWithdraw);
+    return await this._lnurlWithdraw.createLnurlWithdraw(
+      reqCreateLnurlWithdraw
+    );
   }
 
   async start(): Promise<void> {
@@ -67,7 +67,6 @@ class HttpServer {
 
       // Check the method and call the corresponding function
       switch (reqMessage.method) {
-
         case "createLnurlWithdraw": {
           const result: IRespCreateLnurlWithdraw = await this.createLnurlWithdraw(
             reqMessage.params || {}
@@ -77,13 +76,28 @@ class HttpServer {
           break;
         }
 
+        case "getLnurlWithdraw": {
+          const result: IRespCreateLnurlWithdraw = await this.createLnurlWithdraw(
+            reqMessage.params || {}
+          );
+          response.result = result.result;
+          response.error = result.error;
+          break;
+        }
+
         case "encodeBech32": {
-          response.result = await Utils.encodeBech32((reqMessage.params as any).s);
+          response.result = await Utils.encodeBech32(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (reqMessage.params as any).s
+          );
           break;
         }
 
         case "decodeBech32": {
-          response.result = await Utils.decodeBech32((reqMessage.params as any).s);
+          response.result = await Utils.decodeBech32(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (reqMessage.params as any).s
+          );
           break;
         }
 
@@ -120,7 +134,9 @@ class HttpServer {
           req.query
         );
 
-        const response = await this._lnurlWithdraw.processLnurlWithdrawRequest(req.query.s as string);
+        const response = await this._lnurlWithdraw.lnServiceWithdrawRequest(
+          req.query.s as string
+        );
 
         if (response.status) {
           res.status(400).json(response);
@@ -134,12 +150,13 @@ class HttpServer {
     this._httpServer.get(
       this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
       async (req, res) => {
-        logger.info(
-          this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX + ":",
-          req.query
-        );
+        logger.info(this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX + ":", req.query);
 
-        const response = await this._lnurlWithdraw.processLnurlWithdraw({ k1: req.query.k1, pr: req.query.pr, balanceNotify: req.query.balanceNotify } as IReqLnurlWithdraw);
+        const response = await this._lnurlWithdraw.lnServiceWithdraw({
+          k1: req.query.k1,
+          pr: req.query.pr,
+          balanceNotify: req.query.balanceNotify,
+        } as IReqLnurlWithdraw);
 
         if (response.status === "ERROR") {
           res.status(400).json(response);
@@ -148,7 +165,7 @@ class HttpServer {
         }
       }
     );
-    
+
     this._httpServer.listen(this._lnurlConfig.URL_API_PORT, () => {
       logger.info(
         "Express HTTP server listening on port:",
