@@ -14,6 +14,8 @@ import {
 //   expiration INTEGER,
 //   secret_token TEXT UNIQUE,
 //   webhook_url TEXT,
+//   calledback INTEGER DEFAULT false,
+//   calledback_ts INTEGER,
 //   lnurl TEXT,
 //   bolt11 TEXT,
 //   withdrawn_details TEXT,
@@ -46,6 +48,17 @@ export class LnurlWithdrawEntity {
 
   @Column({ type: "text", name: "webhook_url", nullable: true })
   webhookUrl?: string;
+
+  @Column({
+    type: "integer",
+    name: "calledback",
+    nullable: true,
+    default: false,
+  })
+  calledback?: boolean;
+
+  @Column({ type: "integer", name: "calledback_ts", nullable: true })
+  calledbackTimestamp?: Date;
 
   @Index("idx_lnurl_withdraw_lnurl")
   @Column({ type: "text", name: "lnurl", nullable: true })

@@ -14,5 +14,6 @@
     "LN_SERVICE_PORT": 80,
     "LN_SERVICE_CTX": "/lnurl",
     "LN_SERVICE_WITHDRAW_REQUEST_CTX": "/withdrawRequest",
-    "LN_SERVICE_WITHDRAW_CTX": "/withdraw"
+    "LN_SERVICE_WITHDRAW_CTX": "/withdraw",
+    "RETRY_WEBHOOKS_TIMEOUT": 1
 }

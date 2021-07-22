@@ -1,7 +1,7 @@
 import logger from "./Log2File";
 import path from "path";
 import LnurlConfig from "../config/LnurlConfig";
-import { Connection, createConnection } from "typeorm";
+import { Connection, createConnection, IsNull, Not } from "typeorm";
 import { LnurlWithdrawEntity } from "../entity/LnurlWithdrawEntity";
 
 class LnurlDB {
@@ -56,6 +56,36 @@ class LnurlDB {
       .findOne({ where: { secretToken } });
 
     return wr as LnurlWithdrawEntity;
+  }
+
+  async getLnurlWithdraw(
+    lnurlWithdrawEntity: LnurlWithdrawEntity
+  ): Promise<LnurlWithdrawEntity> {
+    const wr = await this._db?.manager
+      .getRepository(LnurlWithdrawEntity)
+      .findOne(lnurlWithdrawEntity);
+
+    return wr as LnurlWithdrawEntity;
+  }
+
+  async getLnurlWithdrawById(
+    lnurlWithdrawId: number
+  ): Promise<LnurlWithdrawEntity> {
+    const lw = await this._db?.manager
+      .getRepository(LnurlWithdrawEntity)
+      .findOne(lnurlWithdrawId);
+
+    return lw as LnurlWithdrawEntity;
+  }
+
+  async getNonCalledbackLnurlWithdraws(): Promise<LnurlWithdrawEntity[]> {
+    const lws = await this._db?.manager
+      .getRepository(LnurlWithdrawEntity)
+      .find({
+        where: { active: false, calledback: false, webhookUrl: Not(IsNull()) },
+      });
+
+    return lws as LnurlWithdrawEntity[];
   }
 }
 

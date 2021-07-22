@@ -112,3 +112,5 @@ curl localhost:8000/withdraw?k1=abc03\&pr=lnbcrt123456780p1ps0pf5ypp5lfskvgsdef4
 ==================
 
 docker run --rm -it --name lnurl -v "$PWD:/lnurl" -v "$PWD/cypherapps/data:/lnurl/data" -v "$PWD/cypherapps/data/logs:/lnurl/logs" -v "/Users/kexkey/dev/cn-dev/dist/cyphernode/gatekeeper/certs/cert.pem:/lnurl/cert.pem:ro" --network cyphernodeappsnet --entrypoint ash lnurl
+npm run build
+npm run start

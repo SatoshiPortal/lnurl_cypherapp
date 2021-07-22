@@ -13,23 +13,43 @@ import IReqLnurlWithdraw from "../types/IReqLnurlWithdraw";
 import { Utils } from "./Utils";
 import IRespLnPay from "../types/cyphernode/IRespLnPay";
 import { LnServiceWithdrawValidator } from "../validators/LnServiceWithdrawValidator";
+import { Scheduler } from "./Scheduler";
 
 class LnurlWithdraw {
   private _lnurlConfig: LnurlConfig;
   private _cyphernodeClient: CyphernodeClient;
   private _lnurlDB: LnurlDB;
+  private _scheduler: Scheduler;
+  private _intervalTimeout?: NodeJS.Timeout;
 
   constructor(lnurlConfig: LnurlConfig) {
     this._lnurlConfig = lnurlConfig;
     this._cyphernodeClient = new CyphernodeClient(this._lnurlConfig);
     this._lnurlDB = new LnurlDB(this._lnurlConfig);
+    this._scheduler = new Scheduler(this._lnurlConfig);
+    this.startIntervals();
   }
 
   configureLnurl(lnurlConfig: LnurlConfig): void {
     this._lnurlConfig = lnurlConfig;
     this._lnurlDB.configureDB(this._lnurlConfig).then(() => {
       this._cyphernodeClient.configureCyphernode(this._lnurlConfig);
+      this._scheduler.configureScheduler(this._lnurlConfig).then(() => {
+        this.startIntervals();
+      });
     });
+  }
+
+  startIntervals(): void {
+    if (this._intervalTimeout) {
+      clearInterval(this._intervalTimeout);
+    }
+    this._intervalTimeout = setInterval(
+      this._scheduler.timeout,
+      this._lnurlConfig.RETRY_WEBHOOKS_TIMEOUT * 60000,
+      this._scheduler,
+      this
+    );
   }
 
   async createLnurlWithdraw(
@@ -140,23 +160,76 @@ class LnurlWithdraw {
       let lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawBySecret(
         params.k1
       );
-      lnurlWithdrawEntity.bolt11 = params.pr;
-      lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-        lnurlWithdrawEntity
-      );
 
       if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
+        logger.debug(
+          "LnurlWithdraw.lnServiceWithdraw, active lnurlWithdrawEntity found for this k1!"
+        );
+
+        lnurlWithdrawEntity.bolt11 = params.pr;
+
         const resp: IRespLnPay = await this._cyphernodeClient.lnPay({
           bolt11: params.pr,
           expectedMsatoshi: lnurlWithdrawEntity.amount,
           expectedDescription: lnurlWithdrawEntity.description,
         });
+
         if (resp.error) {
+          logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay error!");
+
           result = { status: "ERROR", reason: resp.error.message };
+
+          lnurlWithdrawEntity.withdrawnDetails = resp.error.message;
+
+          lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+            lnurlWithdrawEntity
+          );
         } else {
+          logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay success!");
+
           result = { status: "OK" };
+
+          lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.result);
+          lnurlWithdrawEntity.withdrawnTimestamp = new Date();
+          lnurlWithdrawEntity.active = false;
+
+          lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+            lnurlWithdrawEntity
+          );
+
+          if (lnurlWithdrawEntity.webhookUrl) {
+            logger.debug(
+              "LnurlWithdraw.lnServiceWithdraw, about to call back the webhookUrl..."
+            );
+
+            this.processCallbacks(lnurlWithdrawEntity);
+            // const postdata = {
+            //   lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
+            //   lnPayResponse: resp.result,
+            // };
+            // Utils.post(lnurlWithdrawEntity.webhookUrl, postdata).then(
+            //   async (response) => {
+            //     if (response.status >= 200 && response.status < 400) {
+            //       logger.debug(
+            //         "LnurlWithdraw.lnServiceWithdraw, webhook called back"
+            //       );
+
+            //       lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdraw(
+            //         lnurlWithdrawEntity
+            //       );
+            //       lnurlWithdrawEntity.calledback = true;
+            //       lnurlWithdrawEntity.calledbackTimestamp = new Date();
+            //       await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
+            //     }
+            //   }
+            // );
+          }
         }
       } else {
+        logger.debug(
+          "LnurlWithdraw.lnServiceWithdraw, active lnurlWithdrawEntity NOT found for this k1!"
+        );
+
         result = {
           status: "ERROR",
           reason: "Invalid k1 value or inactive lnurlWithdrawRequest",
@@ -175,6 +248,48 @@ class LnurlWithdraw {
     }
 
     return result;
+  }
+
+  async processCallbacks(
+    lnurlWithdrawEntity?: LnurlWithdrawEntity
+  ): Promise<void> {
+    logger.info(
+      "LnurlWithdraw.processCallbacks, lnurlWithdrawEntity=",
+      lnurlWithdrawEntity
+    );
+
+    let lnurlWithdrawEntitys;
+    if (lnurlWithdrawEntity) {
+      lnurlWithdrawEntitys = [lnurlWithdrawEntity];
+    } else {
+      lnurlWithdrawEntitys = await this._lnurlDB.getNonCalledbackLnurlWithdraws();
+    }
+    let response;
+
+    lnurlWithdrawEntitys.forEach(async (lnurlWithdrawEntity) => {
+      logger.debug(
+        "LnurlWithdraw.processCallbacks, lnurlWithdrawEntity=",
+        lnurlWithdrawEntity
+      );
+
+      const postdata = {
+        lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
+        lnPayResponse: JSON.parse(lnurlWithdrawEntity.withdrawnDetails || ""),
+      };
+      logger.debug("LnurlWithdraw.processCallbacks, postdata=", postdata);
+
+      response = await Utils.post(
+        lnurlWithdrawEntity.webhookUrl || "",
+        postdata
+      );
+      if (response.status >= 200 && response.status < 400) {
+        logger.debug("LnurlWithdraw.processCallbacks, webhook called back");
+
+        lnurlWithdrawEntity.calledback = true;
+        lnurlWithdrawEntity.calledbackTimestamp = new Date();
+        await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
+      }
+    });
   }
 }
 

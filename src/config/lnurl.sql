@@ -7,6 +7,8 @@ CREATE TABLE lnurl_withdraw (
   expiration INTEGER,
   secret_token TEXT UNIQUE,
   webhook_url TEXT,
+  calledback INTEGER DEFAULT false,
+  calledback_ts INTEGER,
   lnurl TEXT,
   bolt11 TEXT,
   withdrawn_details TEXT,

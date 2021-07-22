@@ -1,6 +1,6 @@
 #!/bin/sh
 
-. ./colors.sh
+. ./tests/colors.sh
 
 echo -e "${Color_Off}"
 date

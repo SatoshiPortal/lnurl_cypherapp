@@ -10,7 +10,7 @@
 4. Open a channel between the two nodes (use `ln_setup.sh`)
 5. If connection is lost between the two nodes (eg. after a restart of Cyphernode), reconnect the two (use `ln_reconnect.sh`)
 
-## Changes to files for lightning2...
+## Changes to files for lightning2
 
 dist/docker-compose.yaml:
 
@@ -97,5 +97,17 @@ dist/apps/sparkwallet2/docker-compose.yaml:
 
 Container `lightning` is used by Cyphernode and `lightning2` will be our user.
 
-### Create a LNURL for withdraw
+Run ./run_tests.sh or
 
+```bash
+docker run --rm -it -v "$PWD:/tests" --network=cyphernodeappsnet alpine /tests/lnurl_withdraw.sh
+```
+
+lnurl_withdraw.sh will simulate a real-world use case:
+
+1. Payer creates a LNURL Withdraw URL
+2. Payee calls LNURL URL (Withdraw Request)
+3. Payee creates a BOLT11 invoice
+4. Payee calls callback URL (Withdraw)
+5. LNURL Service (this cypherapp) pays BOLT11
+6. LNURL Service (this cypherapp) calls webhook
