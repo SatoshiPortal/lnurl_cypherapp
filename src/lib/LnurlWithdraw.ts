@@ -14,7 +14,6 @@ import { Utils } from "./Utils";
 import IRespLnPay from "../types/cyphernode/IRespLnPay";
 import { LnServiceWithdrawValidator } from "../validators/LnServiceWithdrawValidator";
 import { Scheduler } from "./Scheduler";
-import ILnurlWithdraw from "../types/ILnurlWithdraw";
 
 class LnurlWithdraw {
   private _lnurlConfig: LnurlConfig;
