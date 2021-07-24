@@ -1,7 +1,7 @@
 import { IResponseError } from "./jsonrpc/IResponseMessage";
-import { LnurlWithdrawEntity } from "../entity/LnurlWithdrawEntity";
+import ILnurlWithdraw from "./ILnurlWithdraw";
 
 export default interface IRespLnurlWithdraw {
-  result?: LnurlWithdrawEntity;
+  result?: ILnurlWithdraw;
   error?: IResponseError<never>;
 }

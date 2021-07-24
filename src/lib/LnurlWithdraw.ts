@@ -14,6 +14,7 @@ import { Utils } from "./Utils";
 import IRespLnPay from "../types/cyphernode/IRespLnPay";
 import { LnServiceWithdrawValidator } from "../validators/LnServiceWithdrawValidator";
 import { Scheduler } from "./Scheduler";
+import ILnurlWithdraw from "../types/ILnurlWithdraw";
 
 class LnurlWithdraw {
   private _lnurlConfig: LnurlConfig;
@@ -66,15 +67,16 @@ class LnurlWithdraw {
       // Inputs are valid.
       logger.debug("LnurlWithdraw.createLnurlWithdraw, Inputs are valid.");
 
-      const lnurl = await Utils.encodeBech32(
+      const lnurlDecoded =
         this._lnurlConfig.LN_SERVICE_SERVER +
-          ":" +
-          this._lnurlConfig.LN_SERVICE_PORT +
-          this._lnurlConfig.LN_SERVICE_CTX +
-          this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX +
-          "?s=" +
-          reqCreateLnurlWithdraw.secretToken
-      );
+        ":" +
+        this._lnurlConfig.LN_SERVICE_PORT +
+        this._lnurlConfig.LN_SERVICE_CTX +
+        this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX +
+        "?s=" +
+        reqCreateLnurlWithdraw.secretToken;
+
+      const lnurl = await Utils.encodeBech32(lnurlDecoded);
 
       const lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
         Object.assign(reqCreateLnurlWithdraw as LnurlWithdrawEntity, {
@@ -87,7 +89,9 @@ class LnurlWithdraw {
           "LnurlWithdraw.createLnurlWithdraw, lnurlWithdraw created."
         );
 
-        response.result = lnurlWithdrawEntity;
+        response.result = Object.assign(lnurlWithdrawEntity, {
+          lnurlDecoded,
+        });
       } else {
         // LnurlWithdraw not created
         logger.debug(
@@ -203,26 +207,6 @@ class LnurlWithdraw {
             );
 
             this.processCallbacks(lnurlWithdrawEntity);
-            // const postdata = {
-            //   lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
-            //   lnPayResponse: resp.result,
-            // };
-            // Utils.post(lnurlWithdrawEntity.webhookUrl, postdata).then(
-            //   async (response) => {
-            //     if (response.status >= 200 && response.status < 400) {
-            //       logger.debug(
-            //         "LnurlWithdraw.lnServiceWithdraw, webhook called back"
-            //       );
-
-            //       lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdraw(
-            //         lnurlWithdrawEntity
-            //       );
-            //       lnurlWithdrawEntity.calledback = true;
-            //       lnurlWithdrawEntity.calledbackTimestamp = new Date();
-            //       await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
-            //     }
-            //   }
-            // );
           }
         }
       } else {
@@ -274,6 +258,7 @@ class LnurlWithdraw {
 
       const postdata = {
         lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
+        bolt11: lnurlWithdrawEntity.bolt11,
         lnPayResponse: JSON.parse(lnurlWithdrawEntity.withdrawnDetails || ""),
       };
       logger.debug("LnurlWithdraw.processCallbacks, postdata=", postdata);
