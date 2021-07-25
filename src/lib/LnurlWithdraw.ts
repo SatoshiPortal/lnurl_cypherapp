@@ -126,7 +126,10 @@ class LnurlWithdraw {
     const lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawBySecret(
       secretToken
     );
-    logger.debug("lnurlWithdrawEntity:", lnurlWithdrawEntity);
+    logger.debug(
+      "LnurlWithdraw.lnServiceWithdrawRequest, lnurlWithdrawEntity:",
+      lnurlWithdrawEntity
+    );
 
     if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
       result = {
@@ -145,6 +148,8 @@ class LnurlWithdraw {
     } else {
       result = { status: "ERROR", reason: "Invalid k1 value" };
     }
+
+    logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, responding:", result);
 
     return result;
   }
@@ -229,6 +234,8 @@ class LnurlWithdraw {
         reason: "Invalid arguments",
       };
     }
+
+    logger.debug("LnurlWithdraw.lnServiceWithdraw, responding:", result);
 
     return result;
   }

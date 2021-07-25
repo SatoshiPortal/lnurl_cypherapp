@@ -16,19 +16,23 @@ services:
     restart: always
     labels:
       - "traefik.docker.network=cyphernodeappsnet"
-      - "traefik.frontend.rule=PathPrefixStrip:/lnurl"
+# PathPrefix won't be stripped because we don't want outsiders to access /api, only /lnurl/...
+      - "traefik.frontend.rule=PathPrefix:/lnurl"
       - "traefik.frontend.passHostHeader=true"
       - "traefik.enable=true"
       - "traefik.port=8000"
-      - "traefik.frontend.auth.basic.users=<username:bcrypt>"
+# Don't secure the PathPrefix /lnurl
+#      - "traefik.frontend.auth.basic.users=<username:bcrypt>"
     deploy:
       labels:
         - "traefik.docker.network=cyphernodeappsnet"
-        - "traefik.frontend.rule=PathPrefixStrip:/lnurl"
+# PathPrefix won't be stripped because we don't want outsiders to access /api, only /lnurl/...
+        - "traefik.frontend.rule=PathPrefix:/lnurl"
         - "traefik.frontend.passHostHeader=true"
         - "traefik.enable=true"
         - "traefik.port=8000"
-        - "traefik.frontend.auth.basic.users=<username:bcrypt>"
+# Don't secure the PathPrefix /lnurl
+#        - "traefik.frontend.auth.basic.users=<username:bcrypt>"
       replicas: 1
       placement:
         constraints:
