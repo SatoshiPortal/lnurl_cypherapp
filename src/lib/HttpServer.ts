@@ -49,6 +49,28 @@ class HttpServer {
     );
   }
 
+  async deleteLnurlWithdraw(
+    params: object | undefined
+  ): Promise<IRespCreateLnurlWithdraw> {
+    logger.debug("/deleteLnurlWithdraw params:", params);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lnurlWithdrawId = parseInt((params as any).lnurlWithdrawId);
+
+    return await this._lnurlWithdraw.deleteLnurlWithdraw(lnurlWithdrawId);
+  }
+
+  async getLnurlWithdraw(
+    params: object | undefined
+  ): Promise<IRespCreateLnurlWithdraw> {
+    logger.debug("/getLnurlWithdraw params:", params);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lnurlWithdrawId = parseInt((params as any).lnurlWithdrawId);
+
+    return await this._lnurlWithdraw.getLnurlWithdraw(lnurlWithdrawId);
+  }
+
   async start(): Promise<void> {
     logger.info("Starting incredible service");
 
@@ -77,7 +99,16 @@ class HttpServer {
         }
 
         case "getLnurlWithdraw": {
-          const result: IRespCreateLnurlWithdraw = await this.createLnurlWithdraw(
+          const result: IRespCreateLnurlWithdraw = await this.getLnurlWithdraw(
+            reqMessage.params || {}
+          );
+          response.result = result.result;
+          response.error = result.error;
+          break;
+        }
+
+        case "deleteLnurlWithdraw": {
+          const result: IRespCreateLnurlWithdraw = await this.deleteLnurlWithdraw(
             reqMessage.params || {}
           );
           response.result = result.result;

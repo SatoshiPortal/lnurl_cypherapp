@@ -41,31 +41,55 @@ class LnurlDB {
   async saveLnurlWithdraw(
     lnurlWithdraw: LnurlWithdrawEntity
   ): Promise<LnurlWithdrawEntity> {
-    const lwr = await this._db?.manager
+    const lw = await this._db?.manager
       .getRepository(LnurlWithdrawEntity)
       .save(lnurlWithdraw);
 
-    return lwr as LnurlWithdrawEntity;
+    // We need to instantiate a new Date with expiration:
+    // https://github.com/typeorm/typeorm/issues/4320
+    if (lw) {
+      if (lw.expiration) lw.expiration = new Date(lw.expiration);
+      lw.active = ((lw.active as unknown) as number) == 1;
+      lw.calledback = ((lw.calledback as unknown) as number) == 1;
+    }
+
+    return lw as LnurlWithdrawEntity;
   }
 
   async getLnurlWithdrawBySecret(
     secretToken: string
   ): Promise<LnurlWithdrawEntity> {
-    const wr = await this._db?.manager
+    const lw = await this._db?.manager
       .getRepository(LnurlWithdrawEntity)
       .findOne({ where: { secretToken } });
 
-    return wr as LnurlWithdrawEntity;
+    // We need to instantiate a new Date with expiration:
+    // https://github.com/typeorm/typeorm/issues/4320
+    if (lw) {
+      if (lw.expiration) lw.expiration = new Date(lw.expiration);
+      lw.active = ((lw.active as unknown) as number) == 1;
+      lw.calledback = ((lw.calledback as unknown) as number) == 1;
+    }
+
+    return lw as LnurlWithdrawEntity;
   }
 
   async getLnurlWithdraw(
     lnurlWithdrawEntity: LnurlWithdrawEntity
   ): Promise<LnurlWithdrawEntity> {
-    const wr = await this._db?.manager
+    const lw = await this._db?.manager
       .getRepository(LnurlWithdrawEntity)
       .findOne(lnurlWithdrawEntity);
 
-    return wr as LnurlWithdrawEntity;
+    // We need to instantiate a new Date with expiration:
+    // https://github.com/typeorm/typeorm/issues/4320
+    if (lw) {
+      if (lw.expiration) lw.expiration = new Date(lw.expiration);
+      lw.active = ((lw.active as unknown) as number) == 1;
+      lw.calledback = ((lw.calledback as unknown) as number) == 1;
+    }
+
+    return lw as LnurlWithdrawEntity;
   }
 
   async getLnurlWithdrawById(
@@ -75,6 +99,14 @@ class LnurlDB {
       .getRepository(LnurlWithdrawEntity)
       .findOne(lnurlWithdrawId);
 
+    // We need to instantiate a new Date with expiration:
+    // https://github.com/typeorm/typeorm/issues/4320
+    if (lw) {
+      if (lw.expiration) lw.expiration = new Date(lw.expiration);
+      lw.active = ((lw.active as unknown) as number) == 1;
+      lw.calledback = ((lw.calledback as unknown) as number) == 1;
+    }
+
     return lw as LnurlWithdrawEntity;
   }
 
@@ -82,8 +114,23 @@ class LnurlDB {
     const lws = await this._db?.manager
       .getRepository(LnurlWithdrawEntity)
       .find({
-        where: { active: false, calledback: false, webhookUrl: Not(IsNull()) },
+        where: {
+          active: false,
+          calledback: false,
+          webhookUrl: Not(IsNull()),
+          withdrawnDetails: Not(IsNull()),
+        },
       });
+
+    // We need to instantiate a new Date with expiration:
+    // https://github.com/typeorm/typeorm/issues/4320
+    if (lws && lws.length > 0) {
+      lws.forEach((lw) => {
+        if (lw.expiration) lw.expiration = new Date(lw.expiration);
+        lw.active = ((lw.active as unknown) as number) == 1;
+        lw.calledback = ((lw.calledback as unknown) as number) == 1;
+      });
+    }
 
     return lws as LnurlWithdrawEntity[];
   }

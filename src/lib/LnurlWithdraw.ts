@@ -117,6 +117,123 @@ class LnurlWithdraw {
     return response;
   }
 
+  async deleteLnurlWithdraw(
+    lnurlWithdrawId: number
+  ): Promise<IRespGetLnurlWithdraw> {
+    logger.info(
+      "LnurlWithdraw.deleteLnurlWithdraw, lnurlWithdrawId:",
+      lnurlWithdrawId
+    );
+
+    const response: IRespGetLnurlWithdraw = {};
+
+    if (lnurlWithdrawId) {
+      // Inputs are valid.
+      logger.debug("LnurlWithdraw.deleteLnurlWithdraw, Inputs are valid.");
+
+      let lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawById(
+        lnurlWithdrawId
+      );
+
+      if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
+        logger.debug(
+          "LnurlWithdraw.deleteLnurlWithdraw, active lnurlWithdrawEntity found for this lnurlWithdrawId!"
+        );
+
+        lnurlWithdrawEntity.active = false;
+        lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+          lnurlWithdrawEntity
+        );
+
+        const lnurlDecoded = await Utils.decodeBech32(
+          lnurlWithdrawEntity?.lnurl || ""
+        );
+
+        response.result = Object.assign(lnurlWithdrawEntity, {
+          lnurlDecoded,
+        });
+      } else {
+        // Active LnurlWithdraw not found
+        logger.debug(
+          "LnurlWithdraw.deleteLnurlWithdraw, LnurlWithdraw not found or already deactivated."
+        );
+
+        response.error = {
+          code: ErrorCodes.InvalidRequest,
+          message: "LnurlWithdraw not found or already deactivated",
+        };
+      }
+    } else {
+      // There is an error with inputs
+      logger.debug(
+        "LnurlWithdraw.deleteLnurlWithdraw, there is an error with inputs."
+      );
+
+      response.error = {
+        code: ErrorCodes.InvalidRequest,
+        message: "Invalid arguments",
+      };
+    }
+
+    return response;
+  }
+
+  async getLnurlWithdraw(
+    lnurlWithdrawId: number
+  ): Promise<IRespGetLnurlWithdraw> {
+    logger.info(
+      "LnurlWithdraw.getLnurlWithdraw, lnurlWithdrawId:",
+      lnurlWithdrawId
+    );
+
+    const response: IRespGetLnurlWithdraw = {};
+
+    if (lnurlWithdrawId) {
+      // Inputs are valid.
+      logger.debug("LnurlWithdraw.getLnurlWithdraw, Inputs are valid.");
+
+      const lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawById(
+        lnurlWithdrawId
+      );
+
+      if (lnurlWithdrawEntity != null) {
+        logger.debug(
+          "LnurlWithdraw.getLnurlWithdraw, lnurlWithdrawEntity found for this lnurlWithdrawId!"
+        );
+
+        const lnurlDecoded = await Utils.decodeBech32(
+          lnurlWithdrawEntity.lnurl || ""
+        );
+
+        response.result = Object.assign(lnurlWithdrawEntity, {
+          lnurlDecoded,
+        });
+      } else {
+        // Active LnurlWithdraw not found
+        logger.debug(
+          "LnurlWithdraw.getLnurlWithdraw, LnurlWithdraw not found."
+        );
+
+        response.error = {
+          code: ErrorCodes.InvalidRequest,
+          message: "LnurlWithdraw not found",
+        };
+      }
+    } else {
+      // There is an error with inputs
+      logger.debug(
+        "LnurlWithdraw.getLnurlWithdraw, there is an error with inputs."
+      );
+
+      response.error = {
+        code: ErrorCodes.InvalidRequest,
+        message: "Invalid arguments",
+      };
+    }
+
+    return response;
+  }
+
   async lnServiceWithdrawRequest(
     secretToken: string
   ): Promise<IRespLnServiceWithdrawRequest> {
@@ -132,21 +249,39 @@ class LnurlWithdraw {
     );
 
     if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
-      result = {
-        tag: "withdrawRequest",
-        callback:
-          this._lnurlConfig.LN_SERVICE_SERVER +
-          ":" +
-          this._lnurlConfig.LN_SERVICE_PORT +
-          this._lnurlConfig.LN_SERVICE_CTX +
-          this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
-        k1: lnurlWithdrawEntity.secretToken,
-        defaultDescription: lnurlWithdrawEntity.description,
-        minWithdrawable: lnurlWithdrawEntity.amount,
-        maxWithdrawable: lnurlWithdrawEntity.amount,
-      };
+      // Check expiration
+
+      if (
+        lnurlWithdrawEntity.expiration &&
+        lnurlWithdrawEntity.expiration < new Date()
+      ) {
+        //Expired LNURL
+        logger.debug("LnurlWithdraw.lnServiceWithdrawRequest: expired!");
+
+        result = { status: "ERROR", reason: "Expired LNURL-Withdraw" };
+      } else {
+        logger.debug("LnurlWithdraw.lnServiceWithdraw: not expired!");
+
+        result = {
+          tag: "withdrawRequest",
+          callback:
+            this._lnurlConfig.LN_SERVICE_SERVER +
+            ":" +
+            this._lnurlConfig.LN_SERVICE_PORT +
+            this._lnurlConfig.LN_SERVICE_CTX +
+            this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
+          k1: lnurlWithdrawEntity.secretToken,
+          defaultDescription: lnurlWithdrawEntity.description,
+          minWithdrawable: lnurlWithdrawEntity.amount,
+          maxWithdrawable: lnurlWithdrawEntity.amount,
+        };
+      }
     } else {
-      result = { status: "ERROR", reason: "Invalid k1 value" };
+      if (lnurlWithdrawEntity.active) {
+        result = { status: "ERROR", reason: "Invalid k1 value" };
+      } else {
+        result = { status: "ERROR", reason: "Deleted LNURL" };
+      }
     }
 
     logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, responding:", result);
@@ -174,54 +309,68 @@ class LnurlWithdraw {
           "LnurlWithdraw.lnServiceWithdraw, active lnurlWithdrawEntity found for this k1!"
         );
 
-        lnurlWithdrawEntity.bolt11 = params.pr;
+        // Check expiration
 
-        const resp: IRespLnPay = await this._cyphernodeClient.lnPay({
-          bolt11: params.pr,
-          expectedMsatoshi: lnurlWithdrawEntity.amount,
-          expectedDescription: lnurlWithdrawEntity.description,
-        });
+        if (
+          lnurlWithdrawEntity.expiration &&
+          lnurlWithdrawEntity.expiration < new Date()
+        ) {
+          // Expired LNURL
+          logger.debug("LnurlWithdraw.lnServiceWithdraw: expired!");
 
-        if (resp.error) {
-          logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay error!");
-
-          result = { status: "ERROR", reason: resp.error.message };
-
-          lnurlWithdrawEntity.withdrawnDetails = resp.error.message;
-
-          lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-            lnurlWithdrawEntity
-          );
+          result = { status: "ERROR", reason: "Expired LNURL-Withdraw" };
         } else {
-          logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay success!");
+          logger.debug("LnurlWithdraw.lnServiceWithdraw: not expired!");
 
-          result = { status: "OK" };
+          lnurlWithdrawEntity.bolt11 = params.pr;
 
-          lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.result);
-          lnurlWithdrawEntity.withdrawnTimestamp = new Date();
-          lnurlWithdrawEntity.active = false;
+          const resp: IRespLnPay = await this._cyphernodeClient.lnPay({
+            bolt11: params.pr,
+            expectedMsatoshi: lnurlWithdrawEntity.amount,
+            expectedDescription: lnurlWithdrawEntity.description,
+          });
 
-          lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-            lnurlWithdrawEntity
-          );
+          if (resp.error) {
+            logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay error!");
 
-          if (lnurlWithdrawEntity.webhookUrl) {
-            logger.debug(
-              "LnurlWithdraw.lnServiceWithdraw, about to call back the webhookUrl..."
+            result = { status: "ERROR", reason: resp.error.message };
+
+            lnurlWithdrawEntity.withdrawnDetails = resp.error.message;
+
+            lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+              lnurlWithdrawEntity
+            );
+          } else {
+            logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay success!");
+
+            result = { status: "OK" };
+
+            lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.result);
+            lnurlWithdrawEntity.withdrawnTimestamp = new Date();
+            lnurlWithdrawEntity.active = false;
+
+            lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+              lnurlWithdrawEntity
             );
 
-            this.processCallbacks(lnurlWithdrawEntity);
+            if (lnurlWithdrawEntity.webhookUrl) {
+              logger.debug(
+                "LnurlWithdraw.lnServiceWithdraw, about to call back the webhookUrl..."
+              );
+
+              this.processCallbacks(lnurlWithdrawEntity);
+            }
           }
         }
       } else {
+        if (lnurlWithdrawEntity.active) {
+          result = { status: "ERROR", reason: "Invalid k1 value" };
+        } else {
+          result = { status: "ERROR", reason: "Deleted LNURL" };
+        }
         logger.debug(
           "LnurlWithdraw.lnServiceWithdraw, active lnurlWithdrawEntity NOT found for this k1!"
         );
-
-        result = {
-          status: "ERROR",
-          reason: "Invalid k1 value or inactive lnurlWithdrawRequest",
-        };
       }
     } else {
       // There is an error with inputs
@@ -265,7 +414,9 @@ class LnurlWithdraw {
       const postdata = {
         lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
         bolt11: lnurlWithdrawEntity.bolt11,
-        lnPayResponse: JSON.parse(lnurlWithdrawEntity.withdrawnDetails || ""),
+        lnPayResponse: lnurlWithdrawEntity.withdrawnDetails
+          ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
+          : null,
       };
       logger.debug("LnurlWithdraw.processCallbacks, postdata=", postdata);
 

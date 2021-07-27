@@ -93,8 +93,8 @@ sqlite3 data/lnurl.sqlite -header "select * from lnurl_withdraw"
   secretToken: string;
   webhookUrl?: string;
 
-curl -d '{"id":0,"method":"createLnurlWithdraw","params":{"amount":0.01,"description":"desc02","expiration":"2021-07-15 12:12","secretToken":"abc02","webhookUrl":"https://webhookUrl01"}}' -H "Content-Type: application/json" localhost:8000/api
-{"id":0,"result":{"amount":0.01,"description":"desc01","expiration":"2021-07-15 12:12","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
+curl -d '{"id":0,"method":"createLnurlWithdraw","params":{"amount":0.01,"description":"desc02","expiration":"2021-07-15T12:12:23.112Z","secretToken":"abc02","webhookUrl":"https://webhookUrl01"}}' -H "Content-Type: application/json" localhost:8000/api
+{"id":0,"result":{"amount":0.01,"description":"desc01","expiration":"2021-07-15T12:12:23.112Z","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
 
 sqlite3 data/lnurl.sqlite -header "select * from lnurl_withdraw"
 id|amount|description|expiration|secret_token|webhook_url|lnurl|withdrawn_details|withdrawn_ts|active|created_ts|updated_ts
