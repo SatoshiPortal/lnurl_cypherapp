@@ -429,6 +429,18 @@ deleted1() {
     return 1
   fi
 
+  # Delete it twice...
+  trace 2 "[deleted1] Let's delete it again..."
+  delete_lnurl_withdraw=$(delete_lnurl_withdraw ${lnurl_withdraw_id})
+  trace 2 "[deleted1] delete_lnurl_withdraw=${delete_lnurl_withdraw}"
+  echo "${delete_lnurl_withdraw}" | grep -qi "already deactivated"
+  if [ "$?" -ne "0" ]; then
+    trace 1 "[deleted1] ${On_Red}${BBlack} Should return an error because already deactivated!                                 ${Color_Off}"
+    return 1
+  else
+    trace 1 "\n[deleted1] ${On_IGreen}${BBlack} SUCCESS!                                                                       ${Color_Off}"
+  fi
+
   # Decode LNURL
   local urlSuffix=$(decode_lnurl "${lnurl}" "${lnServicePrefix}")
   trace 2 "[deleted1] urlSuffix=${urlSuffix}"
@@ -437,7 +449,7 @@ deleted1() {
   local withdrawRequestResponse=$(call_lnservice_withdraw_request "${urlSuffix}")
   trace 2 "[deleted1] withdrawRequestResponse=${withdrawRequestResponse}"
 
-  echo "${withdrawRequestResponse}" | grep -qi "deleted"
+  echo "${withdrawRequestResponse}" | grep -qi "Deactivated"
   if [ "$?" -ne "0" ]; then
     trace 1 "[deleted1] ${On_Red}${BBlack} NOT DELETED!                                                                         ${Color_Off}"
     return 1
@@ -503,7 +515,7 @@ deleted2() {
   local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${lnServicePrefix}" "${bolt11}")
   trace 2 "[deleted2] withdrawResponse=${withdrawResponse}"
 
-  echo "${withdrawResponse}" | grep -qi "deleted"
+  echo "${withdrawResponse}" | grep -qi "Deactivated"
   if [ "$?" -ne "0" ]; then
     trace 1 "[deleted2] ${On_Red}${BBlack} NOT DELETED!                                                                         ${Color_Off}"
     return 1
@@ -512,7 +524,7 @@ deleted2() {
   fi
 }
 
-TRACING=1
+TRACING=2
 
 trace 2 "${Color_Off}"
 date

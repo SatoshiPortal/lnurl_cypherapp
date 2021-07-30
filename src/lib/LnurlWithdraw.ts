@@ -135,7 +135,17 @@ class LnurlWithdraw {
         lnurlWithdrawId
       );
 
-      if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
+      // if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
+      if (lnurlWithdrawEntity == null) {
+        logger.debug(
+          "LnurlWithdraw.deleteLnurlWithdraw, lnurlWithdraw not found"
+        );
+
+        response.error = {
+          code: ErrorCodes.InvalidRequest,
+          message: "LnurlWithdraw not found",
+        };
+      } else if (lnurlWithdrawEntity.active) {
         logger.debug(
           "LnurlWithdraw.deleteLnurlWithdraw, active lnurlWithdrawEntity found for this lnurlWithdrawId!"
         );
@@ -153,14 +163,14 @@ class LnurlWithdraw {
           lnurlDecoded,
         });
       } else {
-        // Active LnurlWithdraw not found
+        // LnurlWithdraw already deactivated
         logger.debug(
-          "LnurlWithdraw.deleteLnurlWithdraw, LnurlWithdraw not found or already deactivated."
+          "LnurlWithdraw.deleteLnurlWithdraw, LnurlWithdraw already deactivated."
         );
 
         response.error = {
           code: ErrorCodes.InvalidRequest,
-          message: "LnurlWithdraw not found or already deactivated",
+          message: "LnurlWithdraw already deactivated",
         };
       }
     } else {
