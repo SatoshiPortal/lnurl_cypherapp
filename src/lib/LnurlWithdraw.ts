@@ -248,7 +248,11 @@ class LnurlWithdraw {
       lnurlWithdrawEntity
     );
 
-    if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
+    if (lnurlWithdrawEntity == null) {
+      logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, invalid k1 value:");
+
+      result = { status: "ERROR", reason: "Invalid k1 value" };
+    } else if (lnurlWithdrawEntity.active) {
       // Check expiration
 
       if (
@@ -277,11 +281,9 @@ class LnurlWithdraw {
         };
       }
     } else {
-      if (lnurlWithdrawEntity.active) {
-        result = { status: "ERROR", reason: "Invalid k1 value" };
-      } else {
-        result = { status: "ERROR", reason: "Deleted LNURL" };
-      }
+      logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, deactivated LNURL");
+
+      result = { status: "ERROR", reason: "Deactivated LNURL" };
     }
 
     logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, responding:", result);
@@ -304,13 +306,16 @@ class LnurlWithdraw {
         params.k1
       );
 
-      if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
+      if (lnurlWithdrawEntity == null) {
+        logger.debug("LnurlWithdraw.lnServiceWithdraw, invalid k1 value!");
+
+        result = { status: "ERROR", reason: "Invalid k1 value" };
+      } else if (lnurlWithdrawEntity.active) {
         logger.debug(
           "LnurlWithdraw.lnServiceWithdraw, active lnurlWithdrawEntity found for this k1!"
         );
 
         // Check expiration
-
         if (
           lnurlWithdrawEntity.expiration &&
           lnurlWithdrawEntity.expiration < new Date()
@@ -363,14 +368,9 @@ class LnurlWithdraw {
           }
         }
       } else {
-        if (lnurlWithdrawEntity.active) {
-          result = { status: "ERROR", reason: "Invalid k1 value" };
-        } else {
-          result = { status: "ERROR", reason: "Deleted LNURL" };
-        }
-        logger.debug(
-          "LnurlWithdraw.lnServiceWithdraw, active lnurlWithdrawEntity NOT found for this k1!"
-        );
+        logger.debug("LnurlWithdraw.lnServiceWithdraw, deactivated LNURL!");
+
+        result = { status: "ERROR", reason: "Deactivated LNURL" };
       }
     } else {
       // There is an error with inputs

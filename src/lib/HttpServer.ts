@@ -14,6 +14,8 @@ import { Utils } from "./Utils";
 import IRespCreateLnurlWithdraw from "../types/IRespLnurlWithdraw";
 import IReqCreateLnurlWithdraw from "../types/IReqCreateLnurlWithdraw";
 import IReqLnurlWithdraw from "../types/IReqLnurlWithdraw";
+import IRespLnServiceWithdrawRequest from "../types/IRespLnServiceWithdrawRequest";
+import IRespLnServiceStatus from "../types/IRespLnServiceStatus";
 
 class HttpServer {
   // Create a new express application instance
@@ -108,9 +110,21 @@ class HttpServer {
         }
 
         case "deleteLnurlWithdraw": {
-          const result: IRespCreateLnurlWithdraw = await this.deleteLnurlWithdraw(
-            reqMessage.params || {}
+          let result: IRespCreateLnurlWithdraw = {};
+
+          result = await this._lock.acquire(
+            "deleteLnurlWithdraw",
+            async (): Promise<IRespCreateLnurlWithdraw> => {
+              logger.debug(
+                "acquired lock deleteLnurlWithdraw in deleteLnurlWithdraw"
+              );
+              return await this.deleteLnurlWithdraw(reqMessage.params || {});
+            }
           );
+          logger.debug(
+            "released lock deleteLnurlWithdraw in deleteLnurlWithdraw"
+          );
+
           response.result = result.result;
           response.error = result.error;
           break;
@@ -166,8 +180,21 @@ class HttpServer {
           req.query
         );
 
-        const response = await this._lnurlWithdraw.lnServiceWithdrawRequest(
-          req.query.s as string
+        let response: IRespLnServiceWithdrawRequest = {};
+
+        response = await this._lock.acquire(
+          "deleteLnurlWithdraw",
+          async (): Promise<IRespLnServiceWithdrawRequest> => {
+            logger.debug(
+              "acquired lock deleteLnurlWithdraw in LN Service LNURL Withdraw Request"
+            );
+            return await this._lnurlWithdraw.lnServiceWithdrawRequest(
+              req.query.s as string
+            );
+          }
+        );
+        logger.debug(
+          "released lock deleteLnurlWithdraw in LN Service LNURL Withdraw Request"
         );
 
         if (response.status) {
@@ -185,11 +212,24 @@ class HttpServer {
       async (req, res) => {
         logger.info(this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX + ":", req.query);
 
-        const response = await this._lnurlWithdraw.lnServiceWithdraw({
-          k1: req.query.k1,
-          pr: req.query.pr,
-          balanceNotify: req.query.balanceNotify,
-        } as IReqLnurlWithdraw);
+        let response: IRespLnServiceStatus = {};
+
+        response = await this._lock.acquire(
+          "deleteLnurlWithdraw",
+          async (): Promise<IRespLnServiceStatus> => {
+            logger.debug(
+              "acquired lock deleteLnurlWithdraw in LN Service LNURL Withdraw"
+            );
+            return await this._lnurlWithdraw.lnServiceWithdraw({
+              k1: req.query.k1,
+              pr: req.query.pr,
+              balanceNotify: req.query.balanceNotify,
+            } as IReqLnurlWithdraw);
+          }
+        );
+        logger.debug(
+          "released lock deleteLnurlWithdraw in LN Service LNURL Withdraw"
+        );
 
         if (response.status === "ERROR") {
           res.status(400).json(response);
