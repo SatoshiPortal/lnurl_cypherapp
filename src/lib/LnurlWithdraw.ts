@@ -77,11 +77,22 @@ class LnurlWithdraw {
 
       const lnurl = await Utils.encodeBech32(lnurlDecoded);
 
-      const lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-        Object.assign(reqCreateLnurlWithdraw as LnurlWithdrawEntity, {
-          lnurl: lnurl,
-        })
-      );
+      let lnurlWithdrawEntity: LnurlWithdrawEntity;
+      try {
+        lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+          Object.assign(reqCreateLnurlWithdraw as LnurlWithdrawEntity, {
+            lnurl: lnurl,
+          })
+        );
+      } catch (ex) {
+        logger.debug("ex:", ex);
+
+        response.error = {
+          code: ErrorCodes.InvalidRequest,
+          message: ex.message,
+        };
+        return response;
+      }
 
       if (lnurlWithdrawEntity) {
         logger.debug(

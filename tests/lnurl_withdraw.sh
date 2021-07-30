@@ -53,7 +53,7 @@ create_lnurl_withdraw() {
 
   local callbackurl=${1}
 
-  local invoicenumber=$RANDOM
+  local invoicenumber=${3:-$RANDOM}
   trace 2 "[create_lnurl_withdraw] invoicenumber=${invoicenumber}"
   local amount=$((10000+${invoicenumber}))
   trace 2 "[create_lnurl_withdraw] amount=${amount}"
@@ -524,6 +524,38 @@ deleted2() {
   fi
 }
 
+duplicate_token() {
+  # duplicate_token:
+  #
+  # 1. Create a LNURL Withdraw with expiration=now + 5 seconds
+  # 2. Create another LNURL Withdraw with the same secret_token
+
+  trace 1 "\n[duplicate_token] ${On_Yellow}${BBlack} Duplicate token!                                                                        ${Color_Off}"
+
+  local callbackurl=${1}
+  local lnServicePrefix=${2}
+
+  # Service creates LNURL Withdraw
+  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 5)
+  trace 2 "[duplicate_token] createLnurlWithdraw=${createLnurlWithdraw}"
+  local secret_token=$(echo "${createLnurlWithdraw}" | jq -r ".result.secretToken")
+  trace 2 "secret_token=${secret_token}"
+  local invoicenumber=$(echo "${secret_token}" | sed 's/secret//g')
+  trace 2 "invoicenumber=${invoicenumber}"
+
+  # Service creates another LNURL Withdraw with same secret token
+  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 5 "${invoicenumber}")
+  trace 2 "[duplicate_token] createLnurlWithdraw=${createLnurlWithdraw}"
+
+  echo "${createLnurlWithdraw}" | jq ".error.message" | grep -iq "unique"
+  if [ "$?" -ne "0" ]; then
+    trace 1 "[duplicate_token] ${On_Red}${BBlack} Should have unicity error message!                                                  ${Color_Off}"
+    return 1
+  else
+    trace 1 "\n[duplicate_token] ${On_IGreen}${BBlack} SUCCESS!                                                                       ${Color_Off}"
+  fi
+}
+
 TRACING=2
 
 trace 2 "${Color_Off}"
@@ -547,8 +579,10 @@ trace 2 "lnurlConfig=${lnurlConfig}"
 lnServicePrefix=$(echo "${lnurlConfig}" | jq -r '.result | "\(.LN_SERVICE_SERVER):\(.LN_SERVICE_PORT)"')
 trace 2 "lnServicePrefix=${lnServicePrefix}"
 
-happy_path "${callbackurl}" "${lnServicePrefix}" \
-&& expired1 "${callbackurl}" "${lnServicePrefix}" \
-&& expired2 "${callbackurl}" "${lnServicePrefix}" \
-&& deleted1 "${callbackurl}" "${lnServicePrefix}" \
-&& deleted2 "${callbackurl}" "${lnServicePrefix}"
+# happy_path "${callbackurl}" "${lnServicePrefix}" \
+# && expired1 "${callbackurl}" "${lnServicePrefix}" \
+# && expired2 "${callbackurl}" "${lnServicePrefix}" \
+# && deleted1 "${callbackurl}" "${lnServicePrefix}" \
+# && deleted2 "${callbackurl}" "${lnServicePrefix}" \
+duplicate_token "${callbackurl}" "${lnServicePrefix}"
+
