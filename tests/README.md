@@ -5,7 +5,7 @@
 1. Have a Cyphernode instance setup in regtest with LN active.
 2. Let's double everything LN-related:
    * Duplicate the `lightning` block in `dist/docker-compose.yaml` appending a `2` to the names (see below)
-   * Copy `apps/sparkwallet` to `apps/sparkwallet2` and change `apps/sparkwallet2/docker-compose.yaml` appending a `2` to the names (see below)
+   * Copy `apps/sparkwallet` to `apps/sparkwallet2` and change `apps/sparkwallet2/docker-compose.yaml` appending a `2` to the names and different port (see below)
 3. Mine enough blocks to have regtest coins to open channels between the two LN nodes (use `ln_setup.sh`)
 4. Open a channel between the two nodes (use `ln_setup.sh`)
 5. If connection is lost between the two nodes (eg. after a restart of Cyphernode), reconnect the two (use `ln_reconnect.sh`)

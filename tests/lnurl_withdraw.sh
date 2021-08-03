@@ -579,10 +579,10 @@ trace 2 "lnurlConfig=${lnurlConfig}"
 lnServicePrefix=$(echo "${lnurlConfig}" | jq -r '.result | "\(.LN_SERVICE_SERVER):\(.LN_SERVICE_PORT)"')
 trace 2 "lnServicePrefix=${lnServicePrefix}"
 
-# happy_path "${callbackurl}" "${lnServicePrefix}" \
-# && expired1 "${callbackurl}" "${lnServicePrefix}" \
-# && expired2 "${callbackurl}" "${lnServicePrefix}" \
-# && deleted1 "${callbackurl}" "${lnServicePrefix}" \
-# && deleted2 "${callbackurl}" "${lnServicePrefix}" \
-duplicate_token "${callbackurl}" "${lnServicePrefix}"
+happy_path "${callbackurl}" "${lnServicePrefix}" \
+&& expired1 "${callbackurl}" "${lnServicePrefix}" \
+&& expired2 "${callbackurl}" "${lnServicePrefix}" \
+&& deleted1 "${callbackurl}" "${lnServicePrefix}" \
+&& deleted2 "${callbackurl}" "${lnServicePrefix}" \
+&& duplicate_token "${callbackurl}" "${lnServicePrefix}"
 
