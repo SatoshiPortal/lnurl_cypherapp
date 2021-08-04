@@ -361,7 +361,7 @@ class LnurlWithdraw {
 
             result = { status: "ERROR", reason: resp.error.message };
 
-            lnurlWithdrawEntity.withdrawnDetails = resp.error.message;
+            lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.error);
 
             lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
               lnurlWithdrawEntity
