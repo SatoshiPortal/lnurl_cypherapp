@@ -1,5 +1,5 @@
 export default interface IReqCreateLnurlWithdraw {
-  amount: number;
+  msatoshi: number;
   description?: string;
   expiration?: Date;
   secretToken: string;

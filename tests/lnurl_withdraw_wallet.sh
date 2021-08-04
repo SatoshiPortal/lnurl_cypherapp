@@ -38,14 +38,14 @@ call_lnservice_withdraw_request() {
 create_bolt11() {
   trace 1 "\n[create_bolt11] ${BCyan}User creates bolt11 for the payment...${Color_Off}"
 
-  local amount=${1}
-  trace 2 "[create_bolt11] amount=${amount}"
+  local msatoshi=${1}
+  trace 2 "[create_bolt11] msatoshi=${msatoshi}"
   local label=${2}
   trace 2 "[create_bolt11] label=${label}"
   local desc=${3}
   trace 2 "[create_bolt11] desc=${desc}"
 
-  local data='{"id":1,"jsonrpc": "2.0","method":"invoice","params":{"msatoshi":'${amount}',"label":"'${label}'","description":"'${desc}'"}}'
+  local data='{"id":1,"jsonrpc": "2.0","method":"invoice","params":{"msatoshi":'${msatoshi}',"label":"'${label}'","description":"'${desc}'"}}'
   trace 2 "[create_bolt11] data=${data}"
   local invoice=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
   trace 2 "[create_bolt11] invoice=${invoice}"
@@ -111,12 +111,12 @@ trace 2 "url=${url}"
 
 withdrawRequestResponse=$(call_lnservice_withdraw_request "${url}")
 trace 2 "withdrawRequestResponse=${withdrawRequestResponse}"
-amount=$(echo "${withdrawRequestResponse}" | jq -r ".maxWithdrawable")
-trace 2 "amount=${amount}"
+msatoshi=$(echo "${withdrawRequestResponse}" | jq -r ".maxWithdrawable")
+trace 2 "msatoshi=${msatoshi}"
 desc=$(echo "${withdrawRequestResponse}" | jq -r ".defaultDescription")
 trace 2 "desc=${desc}"
 
-invoice=$(create_bolt11 ${amount} "$RANDOM" "${desc}")
+invoice=$(create_bolt11 ${msatoshi} "$RANDOM" "${desc}")
 trace 2 "invoice=${invoice}"
 bolt11=$(echo "${invoice}" | jq -r ".bolt11")
 

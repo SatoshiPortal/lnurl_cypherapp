@@ -297,8 +297,8 @@ class LnurlWithdraw {
             this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
           k1: lnurlWithdrawEntity.secretToken,
           defaultDescription: lnurlWithdrawEntity.description,
-          minWithdrawable: lnurlWithdrawEntity.amount,
-          maxWithdrawable: lnurlWithdrawEntity.amount,
+          minWithdrawable: lnurlWithdrawEntity.msatoshi,
+          maxWithdrawable: lnurlWithdrawEntity.msatoshi,
         };
       }
     } else {
@@ -352,7 +352,7 @@ class LnurlWithdraw {
 
           const resp: IRespLnPay = await this._cyphernodeClient.lnPay({
             bolt11: params.pr,
-            expectedMsatoshi: lnurlWithdrawEntity.amount,
+            expectedMsatoshi: lnurlWithdrawEntity.msatoshi,
             expectedDescription: lnurlWithdrawEntity.description,
           });
 

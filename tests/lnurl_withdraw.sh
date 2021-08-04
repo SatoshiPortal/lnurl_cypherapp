@@ -55,20 +55,20 @@ create_lnurl_withdraw() {
 
   local invoicenumber=${3:-$RANDOM}
   trace 2 "[create_lnurl_withdraw] invoicenumber=${invoicenumber}"
-  local amount=$((10000+${invoicenumber}))
-  trace 2 "[create_lnurl_withdraw] amount=${amount}"
+  local msatoshi=$((10000+${invoicenumber}))
+  trace 2 "[create_lnurl_withdraw] msatoshi=${msatoshi}"
   local expiration_offset=${2:-0}
   local expiration=$(date -d @$(($(date -u +"%s")+${expiration_offset})) +"%Y-%m-%dT%H:%M:%SZ")
   trace 2 "[create_lnurl_withdraw] expiration=${expiration}"
 
   # Service creates LNURL Withdraw
-  data='{"id":0,"method":"createLnurlWithdraw","params":{"amount":'${amount}',"description":"desc'${invoicenumber}'","expiration":"'${expiration}'","secretToken":"secret'${invoicenumber}'","webhookUrl":"'${callbackurl}'/lnurl/inv'${invoicenumber}'"}}'
+  data='{"id":0,"method":"createLnurlWithdraw","params":{"msatoshi":'${msatoshi}',"description":"desc'${invoicenumber}'","expiration":"'${expiration}'","secretToken":"secret'${invoicenumber}'","webhookUrl":"'${callbackurl}'/lnurl/inv'${invoicenumber}'"}}'
   trace 2 "[create_lnurl_withdraw] data=${data}"
   trace 2 "[create_lnurl_withdraw] Calling createLnurlWithdraw..."
   local createLnurlWithdraw=$(curl -sd "${data}" -H "Content-Type: application/json" lnurl:8000/api)
   trace 2 "[create_lnurl_withdraw] createLnurlWithdraw=${createLnurlWithdraw}"
 
-  # {"id":0,"result":{"amount":0.01,"description":"desc01","expiration":"2021-07-15T12:12:23.112Z","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
+  # {"id":0,"result":{"msatoshi":100000000,"description":"desc01","expiration":"2021-07-15T12:12:23.112Z","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
   local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
   trace 2 "[create_lnurl_withdraw] lnurl=${lnurl}"
 
@@ -143,12 +143,12 @@ call_lnservice_withdraw_request() {
 create_bolt11() {
   trace 1 "\n[create_bolt11] ${BCyan}User creates bolt11 for the payment...${Color_Off}"
 
-  local amount=${1}
-  trace 2 "[create_bolt11] amount=${amount}"
+  local msatoshi=${1}
+  trace 2 "[create_bolt11] msatoshi=${msatoshi}"
   local desc=${2}
   trace 2 "[create_bolt11] desc=${desc}"
 
-  local data='{"id":1,"jsonrpc": "2.0","method":"invoice","params":{"msatoshi":'${amount}',"label":"'${desc}'","description":"'${desc}'"}}'
+  local data='{"id":1,"jsonrpc": "2.0","method":"invoice","params":{"msatoshi":'${msatoshi}',"label":"'${desc}'","description":"'${desc}'"}}'
   trace 2 "[create_bolt11] data=${data}"
   local invoice=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
   trace 2 "[create_bolt11] invoice=${invoice}"
@@ -237,9 +237,9 @@ happy_path() {
   trace 2 "[happy_path] withdrawRequestResponse=${withdrawRequestResponse}"
 
   # Create bolt11 for LN Service LNURL Withdraw
-  local amount=$(echo "${createLnurlWithdraw}" | jq -r '.result.amount')
+  local msatoshi=$(echo "${createLnurlWithdraw}" | jq -r '.result.msatoshi')
   local description=$(echo "${createLnurlWithdraw}" | jq -r '.result.description')
-  local invoice=$(create_bolt11 "${amount}" "${description}")
+  local invoice=$(create_bolt11 "${msatoshi}" "${description}")
   trace 2 "[happy_path] invoice=${invoice}"
   local bolt11=$(echo ${invoice} | jq -r ".bolt11")
   trace 2 "[happy_path] bolt11=${bolt11}"
@@ -358,9 +358,9 @@ expired2() {
   trace 2 "[expired2] withdrawRequestResponse=${withdrawRequestResponse}"
 
   # Create bolt11 for LN Service LNURL Withdraw
-  local amount=$(echo "${createLnurlWithdraw}" | jq -r '.result.amount')
+  local msatoshi=$(echo "${createLnurlWithdraw}" | jq -r '.result.msatoshi')
   local description=$(echo "${createLnurlWithdraw}" | jq -r '.result.description')
-  local invoice=$(create_bolt11 "${amount}" "${description}")
+  local invoice=$(create_bolt11 "${msatoshi}" "${description}")
   trace 2 "[expired2] invoice=${invoice}"
   local bolt11=$(echo ${invoice} | jq -r ".bolt11")
   trace 2 "[expired2] bolt11=${bolt11}"
@@ -499,9 +499,9 @@ deleted2() {
   trace 2 "[deleted2] withdrawRequestResponse=${withdrawRequestResponse}"
 
   # Create bolt11 for LN Service LNURL Withdraw
-  local amount=$(echo "${createLnurlWithdraw}" | jq -r '.result.amount')
+  local msatoshi=$(echo "${createLnurlWithdraw}" | jq -r '.result.msatoshi')
   local description=$(echo "${createLnurlWithdraw}" | jq -r '.result.description')
-  local invoice=$(create_bolt11 "${amount}" "${description}")
+  local invoice=$(create_bolt11 "${msatoshi}" "${description}")
   trace 2 "[deleted2] invoice=${invoice}"
   local bolt11=$(echo ${invoice} | jq -r ".bolt11")
   trace 2 "[deleted2] bolt11=${bolt11}"

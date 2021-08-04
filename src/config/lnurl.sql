@@ -2,7 +2,7 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE lnurl_withdraw (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  amount REAL,
+  msatoshi INTEGER,
   description TEXT,
   expiration INTEGER,
   secret_token TEXT UNIQUE,

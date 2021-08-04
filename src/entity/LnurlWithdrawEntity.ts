@@ -9,7 +9,7 @@ import {
 
 // CREATE TABLE lnurl_withdraw (
 //   id INTEGER PRIMARY KEY AUTOINCREMENT,
-//   amount REAL,
+//   msatoshi INTEGER,
 //   description TEXT,
 //   expiration INTEGER,
 //   secret_token TEXT UNIQUE,
@@ -33,8 +33,8 @@ export class LnurlWithdrawEntity {
   @PrimaryGeneratedColumn({ name: "id" })
   lnurlWithdrawId!: number;
 
-  @Column({ type: "real", name: "amount" })
-  amount!: number;
+  @Column({ type: "integer", name: "msatoshi" })
+  msatoshi!: number;
 
   @Index("idx_lnurl_withdraw_description")
   @Column({ type: "text", name: "description", nullable: true })
