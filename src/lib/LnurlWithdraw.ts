@@ -68,8 +68,8 @@ class LnurlWithdraw {
 
       const lnurlDecoded =
         this._lnurlConfig.LN_SERVICE_SERVER +
-        ":" +
-        this._lnurlConfig.LN_SERVICE_PORT +
+        // ":" +
+        // this._lnurlConfig.LN_SERVICE_PORT +
         this._lnurlConfig.LN_SERVICE_CTX +
         this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX +
         "?s=" +
@@ -291,8 +291,8 @@ class LnurlWithdraw {
           tag: "withdrawRequest",
           callback:
             this._lnurlConfig.LN_SERVICE_SERVER +
-            ":" +
-            this._lnurlConfig.LN_SERVICE_PORT +
+            // ":" +
+            // this._lnurlConfig.LN_SERVICE_PORT +
             this._lnurlConfig.LN_SERVICE_CTX +
             this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
           k1: lnurlWithdrawEntity.secretToken,
@@ -349,12 +349,22 @@ class LnurlWithdraw {
           logger.debug("LnurlWithdraw.lnServiceWithdraw: not expired!");
 
           lnurlWithdrawEntity.bolt11 = params.pr;
-
-          const resp: IRespLnPay = await this._cyphernodeClient.lnPay({
+          const lnPayParams = {
             bolt11: params.pr,
             expectedMsatoshi: lnurlWithdrawEntity.msatoshi,
             expectedDescription: lnurlWithdrawEntity.description,
-          });
+          };
+          let resp: IRespLnPay = await this._cyphernodeClient.lnPay(
+            lnPayParams
+          );
+
+          if (resp.error) {
+            logger.debug(
+              "LnurlWithdraw.lnServiceWithdraw, ln_pay error, let's retry!"
+            );
+
+            resp = await this._cyphernodeClient.lnPay(lnPayParams);
+          }
 
           if (resp.error) {
             logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay error!");
@@ -424,33 +434,37 @@ class LnurlWithdraw {
     } else {
       lnurlWithdrawEntitys = await this._lnurlDB.getNonCalledbackLnurlWithdraws();
     }
-    let response;
 
+    let response;
+    let postdata;
     lnurlWithdrawEntitys.forEach(async (lnurlWithdrawEntity) => {
       logger.debug(
         "LnurlWithdraw.processCallbacks, lnurlWithdrawEntity=",
         lnurlWithdrawEntity
       );
 
-      const postdata = {
-        lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
-        bolt11: lnurlWithdrawEntity.bolt11,
-        lnPayResponse: lnurlWithdrawEntity.withdrawnDetails
-          ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
-          : null,
-      };
-      logger.debug("LnurlWithdraw.processCallbacks, postdata=", postdata);
+      if (lnurlWithdrawEntity.withdrawnTimestamp) {
+        // Call webhook only if withdraw done
+        postdata = {
+          lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
+          bolt11: lnurlWithdrawEntity.bolt11,
+          lnPayResponse: lnurlWithdrawEntity.withdrawnDetails
+            ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
+            : null,
+        };
+        logger.debug("LnurlWithdraw.processCallbacks, postdata=", postdata);
 
-      response = await Utils.post(
-        lnurlWithdrawEntity.webhookUrl || "",
-        postdata
-      );
-      if (response.status >= 200 && response.status < 400) {
-        logger.debug("LnurlWithdraw.processCallbacks, webhook called back");
+        response = await Utils.post(
+          lnurlWithdrawEntity.webhookUrl || "",
+          postdata
+        );
+        if (response.status >= 200 && response.status < 400) {
+          logger.debug("LnurlWithdraw.processCallbacks, webhook called back");
 
-        lnurlWithdrawEntity.calledback = true;
-        lnurlWithdrawEntity.calledbackTimestamp = new Date();
-        await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
+          lnurlWithdrawEntity.calledback = true;
+          lnurlWithdrawEntity.calledbackTimestamp = new Date();
+          await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
+        }
       }
     });
   }
