@@ -119,6 +119,7 @@ class LnurlDB {
           calledback: false,
           webhookUrl: Not(IsNull()),
           withdrawnDetails: Not(IsNull()),
+          withdrawnTimestamp: Not(IsNull()),
         },
       });
 

@@ -68,6 +68,7 @@ class CyphernodeClient {
       url: url,
       method: "post",
       baseURL: this.baseURL,
+      timeout: 30000,
       headers: {
         Authorization: "Bearer " + this._generateToken(),
       },
@@ -133,6 +134,7 @@ class CyphernodeClient {
       url: url,
       method: "get",
       baseURL: this.baseURL,
+      timeout: 30000,
       headers: {
         Authorization: "Bearer " + this._generateToken(),
       },
