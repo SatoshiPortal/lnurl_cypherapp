@@ -1,0 +1,39 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:/lnurl/data/lnurl.sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model LnurlWithdrawEntity {
+  lnurlWithdrawId     Int       @id @default(autoincrement())
+  externalId          String?
+  msatoshi            Int
+  description         String?
+  expiration          DateTime?
+  secretToken         String    @unique
+  webhookUrl          String?
+  calledback          Boolean   @default(false)
+  calledbackTs        DateTime?
+  lnurl               String
+  bolt11              String?
+  btcFallbackAddress  String?
+  batchFallback       Boolean   @default(false)
+  batchRequestId      Int?      @unique
+  fallbackDone        Boolean   @default(false)
+  withdrawnDetails    String?
+  withdrawnTs         DateTime?
+  paid                Boolean   @default(false)
+  deleted             Boolean   @default(false)
+  createdTs           DateTime  @default(now())
+  updatedTs           DateTime  @updatedAt
+
+  @@index([externalId])
+  @@index([bolt11])
+  @@index([btcFallbackAddress])
+}

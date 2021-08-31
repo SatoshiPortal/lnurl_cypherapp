@@ -1,4 +1,5 @@
-CREATE TABLE IF NOT EXISTS "LnurlWithdrawEntity" (
+-- CreateTable
+CREATE TABLE "LnurlWithdrawEntity" (
     "lnurlWithdrawId" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     "externalId" TEXT,
     "msatoshi" INTEGER NOT NULL,
@@ -21,8 +22,18 @@ CREATE TABLE IF NOT EXISTS "LnurlWithdrawEntity" (
     "createdTs" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedTs" DATETIME NOT NULL
 );
+
+-- CreateIndex
 CREATE UNIQUE INDEX "LnurlWithdrawEntity.secretToken_unique" ON "LnurlWithdrawEntity"("secretToken");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "LnurlWithdrawEntity.batchRequestId_unique" ON "LnurlWithdrawEntity"("batchRequestId");
+
+-- CreateIndex
 CREATE INDEX "LnurlWithdrawEntity.externalId_index" ON "LnurlWithdrawEntity"("externalId");
+
+-- CreateIndex
 CREATE INDEX "LnurlWithdrawEntity.bolt11_index" ON "LnurlWithdrawEntity"("bolt11");
+
+-- CreateIndex
 CREATE INDEX "LnurlWithdrawEntity.btcFallbackAddress_index" ON "LnurlWithdrawEntity"("btcFallbackAddress");

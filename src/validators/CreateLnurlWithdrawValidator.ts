@@ -2,8 +2,8 @@ import IReqCreateLnurlWithdraw from "../types/IReqCreateLnurlWithdraw";
 
 class CreateLnurlWithdrawValidator {
   static validateRequest(request: IReqCreateLnurlWithdraw): boolean {
-    if (request.msatoshi && request.secretToken) {
-      // Mandatory msatoshi and secretToken found
+    if (request.msatoshi) {
+      // Mandatory msatoshi found
       if (request.expiration) {
         if (!isNaN(new Date(request.expiration).valueOf())) {
           // Expiration date is valid

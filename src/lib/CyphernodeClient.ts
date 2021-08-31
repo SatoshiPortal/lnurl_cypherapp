@@ -1,6 +1,6 @@
 import logger from "./Log2File";
 import crypto from "crypto";
-import axios, { AxiosRequestConfig } from "axios";
+import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import https from "https";
 import path from "path";
 import fs from "fs";
@@ -92,36 +92,46 @@ class CyphernodeClient {
       logger.debug("CyphernodeClient._post :: response.data:", response.data);
 
       return { status: response.status, data: response.data };
-    } catch (error) {
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        logger.info(
-          "CyphernodeClient._post :: error.response.data:",
-          error.response.data
-        );
-        logger.info(
-          "CyphernodeClient._post :: error.response.status:",
-          error.response.status
-        );
-        logger.info(
-          "CyphernodeClient._post :: error.response.headers:",
-          error.response.headers
-        );
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const error: AxiosError = err;
 
-        return { status: error.response.status, data: error.response.data };
-      } else if (error.request) {
-        // The request was made but no response was received
-        // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-        // http.ClientRequest in node.js
-        logger.info("CyphernodeClient._post :: error.message:", error.message);
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          logger.info(
+            "CyphernodeClient._post :: error.response.data:",
+            error.response.data
+          );
+          logger.info(
+            "CyphernodeClient._post :: error.response.status:",
+            error.response.status
+          );
+          logger.info(
+            "CyphernodeClient._post :: error.response.headers:",
+            error.response.headers
+          );
 
-        return { status: -1, data: error.message };
+          return { status: error.response.status, data: error.response.data };
+        } else if (error.request) {
+          // The request was made but no response was received
+          // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+          // http.ClientRequest in node.js
+          logger.info(
+            "CyphernodeClient._post :: error.message:",
+            error.message
+          );
+
+          return { status: -1, data: error.message };
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          logger.info("CyphernodeClient._post :: Error:", error.message);
+
+          return { status: -2, data: error.message };
+        }
       } else {
-        // Something happened in setting up the request that triggered an Error
-        logger.info("CyphernodeClient._post :: Error:", error.message);
-
-        return { status: -2, data: error.message };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return { status: -2, data: (err as any).message };
       }
     }
   }
@@ -152,36 +162,43 @@ class CyphernodeClient {
       logger.debug("CyphernodeClient._get :: response.data:", response.data);
 
       return { status: response.status, data: response.data };
-    } catch (error) {
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        logger.info(
-          "CyphernodeClient._get :: error.response.data:",
-          error.response.data
-        );
-        logger.info(
-          "CyphernodeClient._get :: error.response.status:",
-          error.response.status
-        );
-        logger.info(
-          "CyphernodeClient._get :: error.response.headers:",
-          error.response.headers
-        );
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        const error: AxiosError = err;
 
-        return { status: error.response.status, data: error.response.data };
-      } else if (error.request) {
-        // The request was made but no response was received
-        // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-        // http.ClientRequest in node.js
-        logger.info("CyphernodeClient._get :: error.message:", error.message);
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          logger.info(
+            "CyphernodeClient._get :: error.response.data:",
+            error.response.data
+          );
+          logger.info(
+            "CyphernodeClient._get :: error.response.status:",
+            error.response.status
+          );
+          logger.info(
+            "CyphernodeClient._get :: error.response.headers:",
+            error.response.headers
+          );
 
-        return { status: -1, data: error.message };
+          return { status: error.response.status, data: error.response.data };
+        } else if (error.request) {
+          // The request was made but no response was received
+          // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
+          // http.ClientRequest in node.js
+          logger.info("CyphernodeClient._get :: error.message:", error.message);
+
+          return { status: -1, data: error.message };
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          logger.info("CyphernodeClient._get :: Error:", error.message);
+
+          return { status: -2, data: error.message };
+        }
       } else {
-        // Something happened in setting up the request that triggered an Error
-        logger.info("CyphernodeClient._get :: Error:", error.message);
-
-        return { status: -2, data: error.message };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return { status: -2, data: (err as any).message };
       }
     }
   }

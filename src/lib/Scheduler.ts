@@ -4,7 +4,8 @@ import { LnurlWithdraw } from "./LnurlWithdraw";
 
 class Scheduler {
   private _lnurlConfig: LnurlConfig;
-  private _startedAt = new Date().getTime();
+  private _cbStartedAt = new Date().getTime();
+  private _fbStartedAt = new Date().getTime();
 
   constructor(lnurlWithdrawConfig: LnurlConfig) {
     this._lnurlConfig = lnurlWithdrawConfig;
@@ -12,16 +13,38 @@ class Scheduler {
 
   async configureScheduler(lnurlWithdrawConfig: LnurlConfig): Promise<void> {
     this._lnurlConfig = lnurlWithdrawConfig;
-    this._startedAt = new Date().getTime();
+    this._cbStartedAt = new Date().getTime();
+    this._fbStartedAt = new Date().getTime();
   }
 
-  timeout(scheduler: Scheduler, lnurlWithdraw: LnurlWithdraw): void {
-    logger.info("Scheduler.timeout");
+  checkCallbacksTimeout(
+    scheduler: Scheduler,
+    lnurlWithdraw: LnurlWithdraw
+  ): void {
+    logger.info("Scheduler.checkCallbacksTimeout");
 
-    scheduler._startedAt = new Date().getTime();
-    logger.debug("Scheduler.timeout this._startedAt =", scheduler._startedAt);
+    scheduler._cbStartedAt = new Date().getTime();
+    logger.debug(
+      "Scheduler.checkCallbacksTimeout this._cbStartedAt =",
+      scheduler._cbStartedAt
+    );
 
     lnurlWithdraw.processCallbacks(undefined);
+  }
+
+  checkFallbacksTimeout(
+    scheduler: Scheduler,
+    lnurlWithdraw: LnurlWithdraw
+  ): void {
+    logger.info("Scheduler.checkFallbacksTimeout");
+
+    scheduler._fbStartedAt = new Date().getTime();
+    logger.debug(
+      "Scheduler.checkFallbacksTimeout this._fbStartedAt =",
+      scheduler._fbStartedAt
+    );
+
+    lnurlWithdraw.processFallbacks();
   }
 }
 

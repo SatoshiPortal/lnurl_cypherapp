@@ -1,7 +1,9 @@
 export default interface IReqCreateLnurlWithdraw {
+  externalId?: string;
   msatoshi: number;
   description?: string;
   expiration?: Date;
-  secretToken: string;
   webhookUrl?: string;
+  btcFallbackAddress?: string;
+  batchFallback?: boolean;
 }

@@ -239,6 +239,23 @@ class HttpServer {
       }
     );
 
+    this._httpServer.post(
+      this._lnurlConfig.URL_CTX_WEBHOOKS,
+      async (req, res) => {
+        logger.info(this._lnurlConfig.URL_CTX_WEBHOOKS + ":", req.body);
+
+        const response = await this._lnurlWithdraw.processBatchWebhook(
+          req.body
+        );
+
+        if (response.error) {
+          res.status(400).json(response);
+        } else {
+          res.status(200).json(response);
+        }
+      }
+    );
+
     this._httpServer.listen(this._lnurlConfig.URL_API_PORT, () => {
       logger.info(
         "Express HTTP server listening on port:",

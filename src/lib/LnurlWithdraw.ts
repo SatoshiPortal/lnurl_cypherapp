@@ -1,12 +1,15 @@
 import logger from "./Log2File";
 import LnurlConfig from "../config/LnurlConfig";
 import { CyphernodeClient } from "./CyphernodeClient";
-import { LnurlDB } from "./LnurlDB";
-import { ErrorCodes } from "../types/jsonrpc/IResponseMessage";
+import { LnurlDB } from "./LnurlDBPrisma";
+import {
+  ErrorCodes,
+  IResponseMessage,
+} from "../types/jsonrpc/IResponseMessage";
 import IReqCreateLnurlWithdraw from "../types/IReqCreateLnurlWithdraw";
-import IRespGetLnurlWithdraw from "../types/IRespLnurlWithdraw";
+import IRespLnurlWithdraw from "../types/IRespLnurlWithdraw";
 import { CreateLnurlWithdrawValidator } from "../validators/CreateLnurlWithdrawValidator";
-import { LnurlWithdrawEntity } from "../entity/LnurlWithdrawEntity";
+// import { LnurlWithdrawEntity } from "../entity/LnurlWithdrawEntity";
 import IRespLnServiceWithdrawRequest from "../types/IRespLnServiceWithdrawRequest";
 import IRespLnServiceStatus from "../types/IRespLnServiceStatus";
 import IReqLnurlWithdraw from "../types/IReqLnurlWithdraw";
@@ -14,17 +17,27 @@ import { Utils } from "./Utils";
 import IRespLnPay from "../types/cyphernode/IRespLnPay";
 import { LnServiceWithdrawValidator } from "../validators/LnServiceWithdrawValidator";
 import { Scheduler } from "./Scheduler";
+import { randomBytes } from "crypto";
+import { BatcherClient } from "./BatcherClient";
+import IReqBatchRequest from "../types/batcher/IReqBatchRequest";
+import IRespBatchRequest from "../types/batcher/IRespBatchRequest";
+import IReqSpend from "../types/cyphernode/IReqSpend";
+import IRespSpend from "../types/cyphernode/IRespSpend";
+import { LnurlWithdrawEntity } from "@prisma/client";
 
 class LnurlWithdraw {
   private _lnurlConfig: LnurlConfig;
   private _cyphernodeClient: CyphernodeClient;
+  private _batcherClient: BatcherClient;
   private _lnurlDB: LnurlDB;
   private _scheduler: Scheduler;
-  private _intervalTimeout?: NodeJS.Timeout;
+  private _intervalCallbacksTimeout?: NodeJS.Timeout;
+  private _intervalFallbacksTimeout?: NodeJS.Timeout;
 
   constructor(lnurlConfig: LnurlConfig) {
     this._lnurlConfig = lnurlConfig;
     this._cyphernodeClient = new CyphernodeClient(this._lnurlConfig);
+    this._batcherClient = new BatcherClient(this._lnurlConfig);
     this._lnurlDB = new LnurlDB(this._lnurlConfig);
     this._scheduler = new Scheduler(this._lnurlConfig);
     this.startIntervals();
@@ -34,6 +47,7 @@ class LnurlWithdraw {
     this._lnurlConfig = lnurlConfig;
     this._lnurlDB.configureDB(this._lnurlConfig).then(() => {
       this._cyphernodeClient.configureCyphernode(this._lnurlConfig);
+      this._batcherClient.configureBatcher(this._lnurlConfig);
       this._scheduler.configureScheduler(this._lnurlConfig).then(() => {
         this.startIntervals();
       });
@@ -41,12 +55,22 @@ class LnurlWithdraw {
   }
 
   startIntervals(): void {
-    if (this._intervalTimeout) {
-      clearInterval(this._intervalTimeout);
+    if (this._intervalCallbacksTimeout) {
+      clearInterval(this._intervalCallbacksTimeout);
     }
-    this._intervalTimeout = setInterval(
-      this._scheduler.timeout,
+    this._intervalCallbacksTimeout = setInterval(
+      this._scheduler.checkCallbacksTimeout,
       this._lnurlConfig.RETRY_WEBHOOKS_TIMEOUT * 60000,
+      this._scheduler,
+      this
+    );
+
+    if (this._intervalFallbacksTimeout) {
+      clearInterval(this._intervalFallbacksTimeout);
+    }
+    this._intervalFallbacksTimeout = setInterval(
+      this._scheduler.checkFallbacksTimeout,
+      this._lnurlConfig.CHECK_EXPIRATION_TIMEOUT * 60000,
       this._scheduler,
       this
     );
@@ -54,26 +78,29 @@ class LnurlWithdraw {
 
   async createLnurlWithdraw(
     reqCreateLnurlWithdraw: IReqCreateLnurlWithdraw
-  ): Promise<IRespGetLnurlWithdraw> {
+  ): Promise<IRespLnurlWithdraw> {
     logger.info(
       "LnurlWithdraw.createLnurlWithdraw, reqCreateLnurlWithdraw:",
       reqCreateLnurlWithdraw
     );
 
-    const response: IRespGetLnurlWithdraw = {};
+    const response: IRespLnurlWithdraw = {};
 
     if (CreateLnurlWithdrawValidator.validateRequest(reqCreateLnurlWithdraw)) {
       // Inputs are valid.
       logger.debug("LnurlWithdraw.createLnurlWithdraw, Inputs are valid.");
 
+      const secretToken = randomBytes(16).toString("hex");
+
       const lnurlDecoded =
         this._lnurlConfig.LN_SERVICE_SERVER +
-        // ":" +
-        // this._lnurlConfig.LN_SERVICE_PORT +
+        (this._lnurlConfig.LN_SERVICE_PORT === 443
+          ? ""
+          : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
         this._lnurlConfig.LN_SERVICE_CTX +
         this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX +
         "?s=" +
-        reqCreateLnurlWithdraw.secretToken;
+        secretToken;
 
       const lnurl = await Utils.encodeBech32(lnurlDecoded);
 
@@ -82,6 +109,7 @@ class LnurlWithdraw {
         lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
           Object.assign(reqCreateLnurlWithdraw as LnurlWithdrawEntity, {
             lnurl: lnurl,
+            secretToken: secretToken,
           })
         );
       } catch (ex) {
@@ -89,14 +117,16 @@ class LnurlWithdraw {
 
         response.error = {
           code: ErrorCodes.InvalidRequest,
-          message: ex.message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          message: (ex as any).message,
         };
         return response;
       }
 
       if (lnurlWithdrawEntity) {
         logger.debug(
-          "LnurlWithdraw.createLnurlWithdraw, lnurlWithdraw created."
+          "LnurlWithdraw.createLnurlWithdraw, lnurlWithdraw created:",
+          lnurlWithdrawEntity
         );
 
         response.result = Object.assign(lnurlWithdrawEntity, {
@@ -130,13 +160,13 @@ class LnurlWithdraw {
 
   async deleteLnurlWithdraw(
     lnurlWithdrawId: number
-  ): Promise<IRespGetLnurlWithdraw> {
+  ): Promise<IRespLnurlWithdraw> {
     logger.info(
       "LnurlWithdraw.deleteLnurlWithdraw, lnurlWithdrawId:",
       lnurlWithdrawId
     );
 
-    const response: IRespGetLnurlWithdraw = {};
+    const response: IRespLnurlWithdraw = {};
 
     if (lnurlWithdrawId) {
       // Inputs are valid.
@@ -156,23 +186,35 @@ class LnurlWithdraw {
           code: ErrorCodes.InvalidRequest,
           message: "LnurlWithdraw not found",
         };
-      } else if (lnurlWithdrawEntity.active) {
-        logger.debug(
-          "LnurlWithdraw.deleteLnurlWithdraw, active lnurlWithdrawEntity found for this lnurlWithdrawId!"
-        );
+      } else if (!lnurlWithdrawEntity.deleted) {
+        if (!lnurlWithdrawEntity.paid) {
+          logger.debug(
+            "LnurlWithdraw.deleteLnurlWithdraw, unpaid lnurlWithdrawEntity found for this lnurlWithdrawId!"
+          );
 
-        lnurlWithdrawEntity.active = false;
-        lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-          lnurlWithdrawEntity
-        );
+          lnurlWithdrawEntity.deleted = true;
+          lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+            lnurlWithdrawEntity
+          );
 
-        const lnurlDecoded = await Utils.decodeBech32(
-          lnurlWithdrawEntity?.lnurl || ""
-        );
+          const lnurlDecoded = await Utils.decodeBech32(
+            lnurlWithdrawEntity?.lnurl || ""
+          );
 
-        response.result = Object.assign(lnurlWithdrawEntity, {
-          lnurlDecoded,
-        });
+          response.result = Object.assign(lnurlWithdrawEntity, {
+            lnurlDecoded,
+          });
+        } else {
+          // LnurlWithdraw already paid
+          logger.debug(
+            "LnurlWithdraw.deleteLnurlWithdraw, LnurlWithdraw already paid."
+          );
+
+          response.error = {
+            code: ErrorCodes.InvalidRequest,
+            message: "LnurlWithdraw already paid",
+          };
+        }
       } else {
         // LnurlWithdraw already deactivated
         logger.debug(
@@ -199,15 +241,13 @@ class LnurlWithdraw {
     return response;
   }
 
-  async getLnurlWithdraw(
-    lnurlWithdrawId: number
-  ): Promise<IRespGetLnurlWithdraw> {
+  async getLnurlWithdraw(lnurlWithdrawId: number): Promise<IRespLnurlWithdraw> {
     logger.info(
       "LnurlWithdraw.getLnurlWithdraw, lnurlWithdrawId:",
       lnurlWithdrawId
     );
 
-    const response: IRespGetLnurlWithdraw = {};
+    const response: IRespLnurlWithdraw = {};
 
     if (lnurlWithdrawId) {
       // Inputs are valid.
@@ -273,33 +313,42 @@ class LnurlWithdraw {
       logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, invalid k1 value:");
 
       result = { status: "ERROR", reason: "Invalid k1 value" };
-    } else if (lnurlWithdrawEntity.active) {
-      // Check expiration
+    } else if (!lnurlWithdrawEntity.deleted) {
+      if (!lnurlWithdrawEntity.paid) {
+        // Check expiration
 
-      if (
-        lnurlWithdrawEntity.expiration &&
-        lnurlWithdrawEntity.expiration < new Date()
-      ) {
-        //Expired LNURL
-        logger.debug("LnurlWithdraw.lnServiceWithdrawRequest: expired!");
+        if (
+          lnurlWithdrawEntity.expiration &&
+          lnurlWithdrawEntity.expiration < new Date()
+        ) {
+          //Expired LNURL
+          logger.debug("LnurlWithdraw.lnServiceWithdrawRequest: expired!");
 
-        result = { status: "ERROR", reason: "Expired LNURL-Withdraw" };
+          result = { status: "ERROR", reason: "Expired LNURL-Withdraw" };
+        } else {
+          logger.debug("LnurlWithdraw.lnServiceWithdraw: not expired!");
+
+          result = {
+            tag: "withdrawRequest",
+            callback:
+              this._lnurlConfig.LN_SERVICE_SERVER +
+              (this._lnurlConfig.LN_SERVICE_PORT === 443
+                ? ""
+                : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
+              this._lnurlConfig.LN_SERVICE_CTX +
+              this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
+            k1: lnurlWithdrawEntity.secretToken,
+            defaultDescription: lnurlWithdrawEntity.description || undefined,
+            minWithdrawable: lnurlWithdrawEntity.msatoshi || undefined,
+            maxWithdrawable: lnurlWithdrawEntity.msatoshi || undefined,
+          };
+        }
       } else {
-        logger.debug("LnurlWithdraw.lnServiceWithdraw: not expired!");
+        logger.debug(
+          "LnurlWithdraw.lnServiceWithdrawRequest, LnurlWithdraw already paid"
+        );
 
-        result = {
-          tag: "withdrawRequest",
-          callback:
-            this._lnurlConfig.LN_SERVICE_SERVER +
-            // ":" +
-            // this._lnurlConfig.LN_SERVICE_PORT +
-            this._lnurlConfig.LN_SERVICE_CTX +
-            this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
-          k1: lnurlWithdrawEntity.secretToken,
-          defaultDescription: lnurlWithdrawEntity.description,
-          minWithdrawable: lnurlWithdrawEntity.msatoshi,
-          maxWithdrawable: lnurlWithdrawEntity.msatoshi,
-        };
+        result = { status: "ERROR", reason: "LnurlWithdraw already paid" };
       }
     } else {
       logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, deactivated LNURL");
@@ -331,72 +380,80 @@ class LnurlWithdraw {
         logger.debug("LnurlWithdraw.lnServiceWithdraw, invalid k1 value!");
 
         result = { status: "ERROR", reason: "Invalid k1 value" };
-      } else if (lnurlWithdrawEntity.active) {
-        logger.debug(
-          "LnurlWithdraw.lnServiceWithdraw, active lnurlWithdrawEntity found for this k1!"
-        );
-
-        // Check expiration
-        if (
-          lnurlWithdrawEntity.expiration &&
-          lnurlWithdrawEntity.expiration < new Date()
-        ) {
-          // Expired LNURL
-          logger.debug("LnurlWithdraw.lnServiceWithdraw: expired!");
-
-          result = { status: "ERROR", reason: "Expired LNURL-Withdraw" };
-        } else {
-          logger.debug("LnurlWithdraw.lnServiceWithdraw: not expired!");
-
-          lnurlWithdrawEntity.bolt11 = params.pr;
-          const lnPayParams = {
-            bolt11: params.pr,
-            expectedMsatoshi: lnurlWithdrawEntity.msatoshi,
-            expectedDescription: lnurlWithdrawEntity.description,
-          };
-          let resp: IRespLnPay = await this._cyphernodeClient.lnPay(
-            lnPayParams
+      } else if (!lnurlWithdrawEntity.deleted) {
+        if (!lnurlWithdrawEntity.paid) {
+          logger.debug(
+            "LnurlWithdraw.lnServiceWithdraw, unpaid lnurlWithdrawEntity found for this k1!"
           );
 
-          if (resp.error) {
-            logger.debug(
-              "LnurlWithdraw.lnServiceWithdraw, ln_pay error, let's retry!"
-            );
+          // Check expiration
+          if (
+            lnurlWithdrawEntity.expiration &&
+            lnurlWithdrawEntity.expiration < new Date()
+          ) {
+            // Expired LNURL
+            logger.debug("LnurlWithdraw.lnServiceWithdraw: expired!");
 
-            resp = await this._cyphernodeClient.lnPay(lnPayParams);
-          }
-
-          if (resp.error) {
-            logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay error!");
-
-            result = { status: "ERROR", reason: resp.error.message };
-
-            lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.error);
-
-            lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-              lnurlWithdrawEntity
-            );
+            result = { status: "ERROR", reason: "Expired LNURL-Withdraw" };
           } else {
-            logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay success!");
+            logger.debug("LnurlWithdraw.lnServiceWithdraw: not expired!");
 
-            result = { status: "OK" };
-
-            lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.result);
-            lnurlWithdrawEntity.withdrawnTimestamp = new Date();
-            lnurlWithdrawEntity.active = false;
-
-            lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-              lnurlWithdrawEntity
+            lnurlWithdrawEntity.bolt11 = params.pr;
+            const lnPayParams = {
+              bolt11: params.pr,
+              expectedMsatoshi: lnurlWithdrawEntity.msatoshi || undefined,
+              expectedDescription: lnurlWithdrawEntity.description || undefined,
+            };
+            let resp: IRespLnPay = await this._cyphernodeClient.lnPay(
+              lnPayParams
             );
 
-            if (lnurlWithdrawEntity.webhookUrl) {
+            if (resp.error) {
               logger.debug(
-                "LnurlWithdraw.lnServiceWithdraw, about to call back the webhookUrl..."
+                "LnurlWithdraw.lnServiceWithdraw, ln_pay error, let's retry!"
               );
 
-              this.processCallbacks(lnurlWithdrawEntity);
+              resp = await this._cyphernodeClient.lnPay(lnPayParams);
+            }
+
+            if (resp.error) {
+              logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay error!");
+
+              result = { status: "ERROR", reason: resp.error.message };
+
+              lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.error);
+
+              lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+                lnurlWithdrawEntity
+              );
+            } else {
+              logger.debug("LnurlWithdraw.lnServiceWithdraw, ln_pay success!");
+
+              result = { status: "OK" };
+
+              lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+                resp.result
+              );
+              lnurlWithdrawEntity.withdrawnTs = new Date();
+              lnurlWithdrawEntity.paid = true;
+
+              lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+                lnurlWithdrawEntity
+              );
+
+              if (lnurlWithdrawEntity.webhookUrl) {
+                logger.debug(
+                  "LnurlWithdraw.lnServiceWithdraw, about to call back the webhookUrl..."
+                );
+
+                this.processCallbacks(lnurlWithdrawEntity);
+              }
             }
           }
+        } else {
+          logger.debug("LnurlWithdraw.lnServiceWithdraw, already paid LNURL!");
+
+          result = { status: "ERROR", reason: "Already paid LNURL" };
         }
       } else {
         logger.debug("LnurlWithdraw.lnServiceWithdraw, deactivated LNURL!");
@@ -428,9 +485,11 @@ class LnurlWithdraw {
       lnurlWithdrawEntity
     );
 
-    let lnurlWithdrawEntitys;
+    let lnurlWithdrawEntitys: LnurlWithdrawEntity[] = [];
     if (lnurlWithdrawEntity) {
-      lnurlWithdrawEntitys = [lnurlWithdrawEntity];
+      if (lnurlWithdrawEntity.webhookUrl && !lnurlWithdrawEntity.calledback) {
+        lnurlWithdrawEntitys = [lnurlWithdrawEntity];
+      }
     } else {
       lnurlWithdrawEntitys = await this._lnurlDB.getNonCalledbackLnurlWithdraws();
     }
@@ -443,15 +502,28 @@ class LnurlWithdraw {
         lnurlWithdrawEntity
       );
 
-      if (lnurlWithdrawEntity.withdrawnTimestamp) {
+      if (lnurlWithdrawEntity.withdrawnTs) {
         // Call webhook only if withdraw done
-        postdata = {
-          lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
-          bolt11: lnurlWithdrawEntity.bolt11,
-          lnPayResponse: lnurlWithdrawEntity.withdrawnDetails
-            ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
-            : null,
-        };
+
+        if (lnurlWithdrawEntity.fallbackDone) {
+          // If paid through fallback...
+          postdata = {
+            lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
+            btcFallbackAddress: lnurlWithdrawEntity.btcFallbackAddress,
+            details: lnurlWithdrawEntity.withdrawnDetails
+              ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
+              : null,
+          };
+        } else {
+          // If paid through LN...
+          postdata = {
+            lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
+            bolt11: lnurlWithdrawEntity.bolt11,
+            lnPayResponse: lnurlWithdrawEntity.withdrawnDetails
+              ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
+              : null,
+          };
+        }
         logger.debug("LnurlWithdraw.processCallbacks, postdata=", postdata);
 
         response = await Utils.post(
@@ -462,11 +534,164 @@ class LnurlWithdraw {
           logger.debug("LnurlWithdraw.processCallbacks, webhook called back");
 
           lnurlWithdrawEntity.calledback = true;
-          lnurlWithdrawEntity.calledbackTimestamp = new Date();
+          lnurlWithdrawEntity.calledbackTs = new Date();
           await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
         }
       }
     });
+  }
+
+  async processFallbacks(): Promise<void> {
+    logger.info("LnurlWithdraw.processFallbacks");
+
+    const lnurlWithdrawEntitys = await this._lnurlDB.getFallbackLnurlWithdraws();
+    logger.debug(
+      "LnurlWithdraw.processFallbacks, lnurlWithdrawEntitys=",
+      lnurlWithdrawEntitys
+    );
+
+    lnurlWithdrawEntitys.forEach(async (lnurlWithdrawEntity) => {
+      logger.debug(
+        "LnurlWithdraw.processFallbacks, lnurlWithdrawEntity=",
+        lnurlWithdrawEntity
+      );
+
+      if (lnurlWithdrawEntity.batchFallback) {
+        logger.debug("LnurlWithdraw.processFallbacks, batched fallback");
+
+        if (lnurlWithdrawEntity.batchRequestId) {
+          logger.debug("LnurlWithdraw.processFallbacks, already batched!");
+        } else {
+          // externalId?: string;
+          // description?: string;
+          // address: string;
+          // amount: number;
+          // webhookUrl?: string;
+
+          const batchRequestTO: IReqBatchRequest = {
+            externalId: lnurlWithdrawEntity.externalId || undefined,
+            description: lnurlWithdrawEntity.description || undefined,
+            address: lnurlWithdrawEntity.btcFallbackAddress || "",
+            amount: Math.round(lnurlWithdrawEntity.msatoshi / 1000) / 1e8,
+            webhookUrl:
+              this._lnurlConfig.URL_API_SERVER +
+              ":" +
+              this._lnurlConfig.URL_API_PORT +
+              this._lnurlConfig.URL_CTX_WEBHOOKS,
+          };
+
+          const resp: IRespBatchRequest = await this._batcherClient.queueForNextBatch(
+            batchRequestTO
+          );
+
+          if (resp.error) {
+            logger.debug(
+              "LnurlWithdraw.processFallbacks, queueForNextBatch error!"
+            );
+
+            lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.error);
+          } else {
+            logger.debug(
+              "LnurlWithdraw.processFallbacks, queueForNextBatch success!"
+            );
+
+            lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.result);
+            lnurlWithdrawEntity.batchRequestId =
+              resp.result?.batchRequestId || null;
+          }
+
+          lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+            lnurlWithdrawEntity
+          );
+        }
+      } else {
+        logger.debug("LnurlWithdraw.processFallbacks, not batched fallback");
+
+        const spendRequestTO: IReqSpend = {
+          address: lnurlWithdrawEntity.btcFallbackAddress || "",
+          amount: Math.round(lnurlWithdrawEntity.msatoshi / 1000) / 1e8,
+        };
+
+        const spendResp: IRespSpend = await this._cyphernodeClient.spend(
+          spendRequestTO
+        );
+
+        if (spendResp?.error) {
+          // There was an error on Cyphernode end, return that.
+          logger.debug(
+            "LnurlWithdraw.processFallbacks: There was an error on Cyphernode spend."
+          );
+
+          lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+            spendResp.error
+          );
+        } else if (spendResp?.result) {
+          logger.debug(
+            "LnurlWithdraw.processFallbacks: Cyphernode spent: ",
+            spendResp.result
+          );
+          lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+            spendResp.result
+          );
+          lnurlWithdrawEntity.withdrawnTs = new Date();
+          lnurlWithdrawEntity.paid = true;
+          lnurlWithdrawEntity.fallbackDone = true;
+        }
+
+        lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+          lnurlWithdrawEntity
+        );
+
+        if (lnurlWithdrawEntity.fallbackDone) {
+          this.processCallbacks(lnurlWithdrawEntity);
+        }
+      }
+    });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async processBatchWebhook(webhookBody: any): Promise<IResponseMessage> {
+    logger.info("LnurlWithdraw.processBatchWebhook,", webhookBody);
+
+    // {
+    //     batchRequestId: 48,
+    //     batchId: 8,
+    //     cnBatcherId: 1,
+    //     requestCountInBatch: 12,
+    //     status: "accepted",
+    //     txid: "fc02518e32c22574158b96a513be92739ecb02d0caa463bb273e28d2efead8be",
+    //     hash: "fc02518e32c22574158b96a513be92739ecb02d0caa463bb273e28d2efead8be",
+    //     details: {
+    //       address: "2N8DcqzfkYi8CkYzvNNS5amoq3SbAcQNXKp",
+    //       amount: 0.0001,
+    //       firstseen: 1584568841,
+    //       size: 222,
+    //       vsize: 141,
+    //       replaceable: 0,
+    //       fee: 0.00000141,
+    //     }
+    // }
+
+    let lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawByBatchRequestId(
+      webhookBody.batchRequestId
+    );
+
+    const result: IResponseMessage = {
+      id: webhookBody.id,
+      result: "Merci bonsouère!",
+    } as IResponseMessage;
+
+    lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(webhookBody);
+    lnurlWithdrawEntity.withdrawnTs = new Date();
+    lnurlWithdrawEntity.paid = true;
+    lnurlWithdrawEntity.fallbackDone = true;
+    lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+      lnurlWithdrawEntity
+    );
+
+    this.processCallbacks(lnurlWithdrawEntity);
+
+    return result;
   }
 }
 

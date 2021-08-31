@@ -2,10 +2,17 @@
 
 ## Setup
 
+For these tests to be successful:
+
+- Set the CHECK_EXPIRATION_TIMEOUT config to 1
+- In the Batcher, set the CHECK_THRESHOLD_MINUTES to 1 and the BATCH_THRESHOLD_AMOUNT to 0.00000500
+
+On the Cyphernode ecosystem side:
+
 1. Have a Cyphernode instance setup in regtest with LN active.
 2. Let's double everything LN-related:
-   * Duplicate the `lightning` block in `dist/docker-compose.yaml` appending a `2` to the names (see below)
-   * Copy `apps/sparkwallet` to `apps/sparkwallet2` and change `apps/sparkwallet2/docker-compose.yaml` appending a `2` to the names and different port (see below)
+   - Duplicate the `lightning` block in `dist/docker-compose.yaml` appending a `2` to the names (see below)
+   - Copy `apps/sparkwallet` to `apps/sparkwallet2` and change `apps/sparkwallet2/docker-compose.yaml` appending a `2` to the names and different port (see below)
 3. Mine enough blocks to have regtest coins to open channels between the two LN nodes (use `ln_setup.sh`)
 4. Open a channel between the two nodes (use `ln_setup.sh`)
 5. If connection is lost between the two nodes (eg. after a restart of Cyphernode), reconnect the two (use `ln_reconnect.sh`)
@@ -103,11 +110,66 @@ Run ./run_tests.sh or
 docker run --rm -it -v "$PWD:/tests" --network=cyphernodeappsnet alpine /tests/lnurl_withdraw.sh
 ```
 
-lnurl_withdraw.sh will simulate a real-world use case:
+lnurl_withdraw.sh will simulate real-world use cases:
 
-1. Payer creates a LNURL Withdraw URL
-2. Payee calls LNURL URL (Withdraw Request)
-3. Payee creates a BOLT11 invoice
-4. Payee calls callback URL (Withdraw)
-5. LNURL Service (this cypherapp) pays BOLT11
-6. LNURL Service (this cypherapp) calls webhook
+### Happy path
+
+1. Create a LNURL Withdraw
+2. Get it and compare
+3. User calls LNServiceWithdrawRequest with wrong k1 -> Error, wrong k1!
+4. User calls LNServiceWithdrawRequest
+5. User calls LNServiceWithdraw with wrong k1 -> Error, wrong k1!
+6. User calls LNServiceWithdraw
+
+### Expired 1
+
+1. Create a LNURL Withdraw with expiration=now
+2. Get it and compare
+3. User calls LNServiceWithdrawRequest -> Error, expired!
+
+### Expired 2
+
+1. Create a LNURL Withdraw with expiration=now + 5 seconds
+2. Get it and compare
+3. User calls LNServiceWithdrawRequest
+4. Sleep 5 seconds
+5. User calls LNServiceWithdraw -> Error, expired!
+
+### Deleted 1
+
+1. Create a LNURL Withdraw with expiration=now
+2. Get it and compare
+3. Delete it
+4. Get it and compare
+5. User calls LNServiceWithdrawRequest -> Error, deleted!
+
+### Deleted 2
+
+1. Create a LNURL Withdraw with expiration=now + 5 seconds
+2. Get it and compare
+3. User calls LNServiceWithdrawRequest
+4. Delete it
+5. User calls LNServiceWithdraw -> Error, deleted!
+
+### fallback 1, use of Bitcoin fallback address
+
+1. Cyphernode.getnewaddress -> btcfallbackaddr
+2. Cyphernode.watch btcfallbackaddr
+3. Listen to watch webhook
+4. Create a LNURL Withdraw with expiration=now and a btcfallbackaddr
+5. Get it and compare
+6. User calls LNServiceWithdrawRequest -> Error, expired!
+7. Fallback should be triggered, LNURL callback called (port 1111), Cyphernode's watch callback called (port 1112)
+8. Mined block and Cyphernode's confirmed watch callback called (port 1113)
+
+### fallback 2, use of Bitcoin fallback address in a batched spend
+
+1. Cyphernode.getnewaddress -> btcfallbackaddr
+2. Cyphernode.watch btcfallbackaddr
+3. Listen to watch webhook
+4. Create a LNURL Withdraw with expiration=now and a btcfallbackaddr
+5. Get it and compare
+6. User calls LNServiceWithdrawRequest -> Error, expired!
+7. Fallback should be triggered, added to current batch using the Batcher
+8. Wait for the batch to execute, LNURL callback called (port 1111), Cyphernode's watch callback called (port 1112), Batcher's execute callback called (port 1113)
+9. Mined block and Cyphernode's confirmed watch callback called (port 1114)
