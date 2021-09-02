@@ -113,20 +113,43 @@ class HttpServer {
           let result: IRespCreateLnurlWithdraw = {};
 
           result = await this._lock.acquire(
-            "deleteLnurlWithdraw",
+            "modifLnurlWithdraw",
             async (): Promise<IRespCreateLnurlWithdraw> => {
               logger.debug(
-                "acquired lock deleteLnurlWithdraw in deleteLnurlWithdraw"
+                "acquired lock modifLnurlWithdraw in deleteLnurlWithdraw"
               );
               return await this.deleteLnurlWithdraw(reqMessage.params || {});
             }
           );
           logger.debug(
-            "released lock deleteLnurlWithdraw in deleteLnurlWithdraw"
+            "released lock modifLnurlWithdraw in deleteLnurlWithdraw"
           );
 
           response.result = result.result;
           response.error = result.error;
+          break;
+        }
+
+        case "processCallbacks": {
+          this._lnurlWithdraw.processCallbacks();
+
+          response.result = {};
+          break;
+        }
+
+        case "processFallbacks": {
+          await this._lock.acquire(
+            "modifLnurlWithdraw",
+            async (): Promise<void> => {
+              logger.debug(
+                "acquired lock modifLnurlWithdraw in processFallbacks"
+              );
+              await this._lnurlWithdraw.processFallbacks();
+            }
+          );
+          logger.debug("released lock modifLnurlWithdraw in processFallbacks");
+
+          response.result = {};
           break;
         }
 
@@ -183,7 +206,7 @@ class HttpServer {
         let response: IRespLnServiceWithdrawRequest = {};
 
         response = await this._lock.acquire(
-          "deleteLnurlWithdraw",
+          "modifLnurlWithdraw",
           async (): Promise<IRespLnServiceWithdrawRequest> => {
             logger.debug(
               "acquired lock deleteLnurlWithdraw in LN Service LNURL Withdraw Request"
@@ -218,7 +241,7 @@ class HttpServer {
           "deleteLnurlWithdraw",
           async (): Promise<IRespLnServiceStatus> => {
             logger.debug(
-              "acquired lock deleteLnurlWithdraw in LN Service LNURL Withdraw"
+              "acquired lock modifLnurlWithdraw in LN Service LNURL Withdraw"
             );
             return await this._lnurlWithdraw.lnServiceWithdraw({
               k1: req.query.k1,
@@ -228,7 +251,7 @@ class HttpServer {
           }
         );
         logger.debug(
-          "released lock deleteLnurlWithdraw in LN Service LNURL Withdraw"
+          "released lock modifLnurlWithdraw in LN Service LNURL Withdraw"
         );
 
         if (response.status === "ERROR") {

@@ -98,7 +98,17 @@ class LnurlDBPrisma {
         // withdrawnTs: { not: null },
         AND: [
           { OR: [{ paid: true }, { batchRequestId: { not: null } }] },
-          { OR: [{ paidCalledback: false }, { batchedCalledback: false }] },
+          {
+            OR: [
+              { paidCalledback: false },
+              {
+                AND: [
+                  { batchedCalledback: false },
+                  { batchRequestId: { not: null } },
+                ],
+              },
+            ],
+          },
         ],
       },
     });

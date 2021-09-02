@@ -1,6 +1,6 @@
 import logger from "./Log2File";
 import LnurlConfig from "../config/LnurlConfig";
-import { LnurlWithdraw } from "./LnurlWithdraw";
+import { Utils } from "./Utils";
 
 class Scheduler {
   private _lnurlConfig: LnurlConfig;
@@ -17,10 +17,7 @@ class Scheduler {
     this._fbStartedAt = new Date().getTime();
   }
 
-  checkCallbacksTimeout(
-    scheduler: Scheduler,
-    lnurlWithdraw: LnurlWithdraw
-  ): void {
+  checkCallbacksTimeout(scheduler: Scheduler): void {
     logger.info("Scheduler.checkCallbacksTimeout");
 
     scheduler._cbStartedAt = new Date().getTime();
@@ -29,13 +26,24 @@ class Scheduler {
       scheduler._cbStartedAt
     );
 
-    lnurlWithdraw.processCallbacks(undefined);
+    // lnurlWithdraw.processCallbacks(undefined);
+    const postdata = {
+      id: 0,
+      method: "processCallbacks",
+    };
+
+    Utils.post(
+      scheduler._lnurlConfig.URL_API_SERVER +
+        ":" +
+        scheduler._lnurlConfig.URL_API_PORT +
+        scheduler._lnurlConfig.URL_API_CTX,
+      postdata
+    ).then((res) => {
+      logger.debug("Scheduler.checkCallbacksTimeout, res=", res);
+    });
   }
 
-  checkFallbacksTimeout(
-    scheduler: Scheduler,
-    lnurlWithdraw: LnurlWithdraw
-  ): void {
+  checkFallbacksTimeout(scheduler: Scheduler): void {
     logger.info("Scheduler.checkFallbacksTimeout");
 
     scheduler._fbStartedAt = new Date().getTime();
@@ -44,7 +52,21 @@ class Scheduler {
       scheduler._fbStartedAt
     );
 
-    lnurlWithdraw.processFallbacks();
+    // lnurlWithdraw.processFallbacks();
+    const postdata = {
+      id: 0,
+      method: "processFallbacks",
+    };
+
+    Utils.post(
+      scheduler._lnurlConfig.URL_API_SERVER +
+        ":" +
+        scheduler._lnurlConfig.URL_API_PORT +
+        scheduler._lnurlConfig.URL_API_CTX,
+      postdata
+    ).then((res) => {
+      logger.debug("Scheduler.checkFallbacksTimeout, res=", res);
+    });
   }
 }
 

@@ -60,8 +60,7 @@ class LnurlWithdraw {
     this._intervalCallbacksTimeout = setInterval(
       this._scheduler.checkCallbacksTimeout,
       this._lnurlConfig.RETRY_WEBHOOKS_TIMEOUT * 60000,
-      this._scheduler,
-      this
+      this._scheduler
     );
 
     if (this._intervalFallbacksTimeout) {
@@ -313,7 +312,7 @@ class LnurlWithdraw {
 
       result = { status: "ERROR", reason: "Invalid k1 value" };
     } else if (!lnurlWithdrawEntity.deleted) {
-      if (!lnurlWithdrawEntity.paid) {
+      if (!lnurlWithdrawEntity.paid && !lnurlWithdrawEntity.batchRequestId) {
         // Check expiration
 
         if (
@@ -344,10 +343,13 @@ class LnurlWithdraw {
         }
       } else {
         logger.debug(
-          "LnurlWithdraw.lnServiceWithdrawRequest, LnurlWithdraw already paid"
+          "LnurlWithdraw.lnServiceWithdrawRequest, LnurlWithdraw already paid or batched"
         );
 
-        result = { status: "ERROR", reason: "LnurlWithdraw already paid" };
+        result = {
+          status: "ERROR",
+          reason: "LnurlWithdraw already paid or batched",
+        };
       }
     } else {
       logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, deactivated LNURL");
@@ -380,7 +382,7 @@ class LnurlWithdraw {
 
         result = { status: "ERROR", reason: "Invalid k1 value" };
       } else if (!lnurlWithdrawEntity.deleted) {
-        if (!lnurlWithdrawEntity.paid) {
+        if (!lnurlWithdrawEntity.paid && !lnurlWithdrawEntity.batchRequestId) {
           logger.debug(
             "LnurlWithdraw.lnServiceWithdraw, unpaid lnurlWithdrawEntity found for this k1!"
           );
@@ -450,9 +452,14 @@ class LnurlWithdraw {
             }
           }
         } else {
-          logger.debug("LnurlWithdraw.lnServiceWithdraw, already paid LNURL!");
+          logger.debug(
+            "LnurlWithdraw.lnServiceWithdraw, already paid or batched!"
+          );
 
-          result = { status: "ERROR", reason: "Already paid LNURL" };
+          result = {
+            status: "ERROR",
+            reason: "LnurlWithdraw already paid or batched",
+          };
         }
       } else {
         logger.debug("LnurlWithdraw.lnServiceWithdraw, deactivated LNURL!");
