@@ -202,6 +202,26 @@ Response:
 }
 ```
 
+### processCallbacks
+
+Request: N/A
+
+Response:
+
+```json
+{}
+```
+
+### processFallbacks
+
+Request: N/A
+
+Response:
+
+```json
+{}
+```
+
 ## LNURL-withdraw User/Wallet endpoints
 
 ### /withdrawRequest?s=[secretToken]
@@ -239,18 +259,19 @@ Response:
 
 ```json
 {
-  "lnurlWithdrawId": 1,
-  "bolt11": "lnbcrt5019590p1psjuc7upp5vzp443fueactllywqp9cm66ewreka2gt37t6su2tcq73hj363cmsdqdv3jhxce38y6njxqyjw5qcqp2sp5cextwkrkepuacr2san20epkgfqfxjukaffd806dgz8z2txrm730s9qy9qsqzuw2a2gempuz78sxa06djguslx0xs8p54656e0m2p82yzzr40rthqkxkpzxk7jhce6lz5m6eyre4jnraz3kfpyd69280qy8k4a6hwrsqxwns9y",
+  "action": "lnPaid",
+  "lnurlWithdrawId": 45,
+  "bolt11": "lnbcrt5048150p1psnzvkjpp5fxf3zk4yalqeh3kzxusn7hpqx4f7ya6tundmdst6nvxem6eskw3qdqdv3jhxce58qcn2xqyjw5qcqp2sp5zmddwmhrellsj5nauwvcdyvvze9hg8k7wkhes04ha49htnfuawnq9qy9qsqh6ecxxqv568javdgenr5r4mm3ut82t683pe8yexql7rrwa8l5euq7ffh329rlgzsufj5s7x4n4pj2lcq0j9kqzn7gyt9zhg847pg6csqmuxdfh",
   "lnPayResponse": {
     "destination": "029b26c73b2c19ec9bdddeeec97c313670c96b6414ceacae0fb1b3502e490a6cbb",
-    "payment_hash": "60835ac53ccf70bffc8e004b8deb5970f36ea90b8f97a8714bc03d1bca3a8e37",
-    "created_at": 1630430175.298,
+    "payment_hash": "4993115aa4efc19bc6c237213f5c203553e2774be4dbb6c17a9b0d9deb30b3a2",
+    "created_at": 1630614227.193,
     "parts": 1,
-    "msatoshi": 501959,
-    "amount_msat": "501959msat",
-    "msatoshi_sent": 501959,
-    "amount_sent_msat": "501959msat",
-    "payment_preimage": "337ce72718d3523de121276ef65176d2620959704e442756e81069c34213671f",
+    "msatoshi": 504815,
+    "amount_msat": "504815msat",
+    "msatoshi_sent": 504815,
+    "amount_sent_msat": "504815msat",
+    "payment_preimage": "d4ecd85e662ce1f6c6f14d134755240efd6dcb2217a0f511ca29fd694942b532",
     "status": "complete"
   }
 }
@@ -260,16 +281,17 @@ Response:
 
 ```json
 {
-  "lnurlWithdrawId": 6,
-  "btcFallbackAddress": "bcrt1q8hthhmdf9d7v2zrgpdf5ywt3crl25875em649d",
+  "action": "fallbackPaid",
+  "lnurlWithdrawId": 50,
+  "btcFallbackAddress": "bcrt1qgs0axulr8s2wp69n5cf805ck4xv6crelndustu",
   "details": {
     "status": "accepted",
-    "txid": "12a3f45dbec7ddc9f809560560e64bcca40117b1cbba2d6eb9d40b4663066016",
-    "hash": "9e66b684872fd628974235156e08f189a7de7eb1c084e8022775def0faf059a9",
+    "txid": "5683ecabaf7b4bd1d90ee23de74655495945af41f6fc783876a841598e4041f3",
+    "hash": "49ba4efa1ed7a19016b623686c34a2e287d7ca3c8f58593ce07ce08ff8a12f7c",
     "details": {
-      "address": "bcrt1q8hthhmdf9d7v2zrgpdf5ywt3crl25875em649d",
-      "amount": 5.1e-06,
-      "firstseen": 1630430188,
+      "address": "bcrt1qgs0axulr8s2wp69n5cf805ck4xv6crelndustu",
+      "amount": 5.33e-06,
+      "firstseen": 1630614256,
       "size": 222,
       "vsize": 141,
       "replaceable": true,
@@ -280,28 +302,53 @@ Response:
 }
 ```
 
+- LNURL Withdraw batched using Bitcoin fallback
+
+```json
+{
+  "action": "fallbackBatched",
+  "lnurlWithdrawId": 51,
+  "btcFallbackAddress": "bcrt1qh0cpvxan6fzjxzwhwlagrpxgca7h5qrcjq2pm9",
+  "details": {
+    "batchId": 16,
+    "batchRequestId": 36,
+    "etaSeconds": 7,
+    "cnResult": {
+      "batcherId": 1,
+      "outputId": 155,
+      "nbOutputs": 1,
+      "oldest": "2021-09-02 20:25:16",
+      "total": 5.26e-06
+    },
+    "address": "bcrt1qh0cpvxan6fzjxzwhwlagrpxgca7h5qrcjq2pm9",
+    "amount": 5.26e-06
+  }
+}
+```
+
 - LNURL Withdraw paid using a batched Bitcoin fallback
 
 ```json
 {
-  "lnurlWithdrawId": 7,
-  "btcFallbackAddress": "bcrt1qm2qs6a20k6cv6c8azvu75xsccea65ak65fu3z2",
+  "action": "fallbackPaid",
+  "lnurlWithdrawId": 51,
+  "btcFallbackAddress": "bcrt1qh0cpvxan6fzjxzwhwlagrpxgca7h5qrcjq2pm9",
   "details": {
-    "batchRequestId": 25,
-    "batchId": 5,
+    "batchRequestId": 36,
+    "batchId": 16,
     "cnBatcherId": 1,
     "requestCountInBatch": 1,
     "status": "accepted",
-    "txid": "a1fcb30493c9bf695e7d8e226c59ec99df0a6f3739f37e8ab122010b7b8d7545",
-    "hash": "85e6fad9ebcc29d5895de2b9aaa0bdb35a356254a8fa8c1e312e762af3835f6e",
+    "txid": "a6a03ea728718bccf42f53b1b833fb405f06243d1ce3aad2e5a4522eb3ab3231",
+    "hash": "8aafb505abfffa6bb91b3e1c59445091c785685b9fabd6a3188e088b4c3210f0",
     "details": {
-      "firstseen": 1630430310,
+      "firstseen": 1630614325,
       "size": 222,
       "vsize": 141,
       "replaceable": true,
       "fee": 2.82e-05,
-      "address": "bcrt1qm2qs6a20k6cv6c8azvu75xsccea65ak65fu3z2",
-      "amount": 5.11e-06
+      "address": "bcrt1qh0cpvxan6fzjxzwhwlagrpxgca7h5qrcjq2pm9",
+      "amount": 5.26e-06
     }
   }
 }
