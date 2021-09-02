@@ -87,13 +87,13 @@ create_lnurl_withdraw() {
   local fallback_batched=${5:-"false"}
 
   # Service creates LNURL Withdraw
-  data='{"id":0,"method":"createLnurlWithdraw","params":{"msatoshi":'${msatoshi}',"description":"desc'${invoicenumber}'","expiration":"'${expiration}'","webhookUrl":"'${callbackurl}'/lnurl/inv'${invoicenumber}'","btcFallbackAddress":"'${fallback_addr}'","batchFallback":'${fallback_batched}'}}'
+  data='{"id":0,"method":"createLnurlWithdraw","params":{"msatoshi":'${msatoshi}',"description":"desc'${invoicenumber}'","expiresAt":"'${expiration}'","webhookUrl":"'${callbackurl}'/lnurl/inv'${invoicenumber}'","btcFallbackAddress":"'${fallback_addr}'","batchFallback":'${fallback_batched}'}}'
   trace 3 "[create_lnurl_withdraw] data=${data}"
   trace 3 "[create_lnurl_withdraw] Calling createLnurlWithdraw..."
   local createLnurlWithdraw=$(curl -sd "${data}" -H "Content-Type: application/json" lnurl:8000/api)
   trace 3 "[create_lnurl_withdraw] createLnurlWithdraw=${createLnurlWithdraw}"
 
-  # {"id":0,"result":{"msatoshi":100000000,"description":"desc01","expiration":"2021-07-15T12:12:23.112Z","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
+  # {"id":0,"result":{"msatoshi":100000000,"description":"desc01","expiresAt":"2021-07-15T12:12:23.112Z","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
   local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
   trace 3 "[create_lnurl_withdraw] lnurl=${lnurl}"
 
@@ -688,9 +688,8 @@ fallback2() {
   local urlSuffix=$(decode_lnurl "${lnurl}" "${lnServicePrefix}")
   trace 3 "[fallback2] urlSuffix=${urlSuffix}"
 
+  # fallback batched callback
   start_callback_server
-  start_callback_server ${zeroconfport}
-  start_callback_server ${oneconfport}
 
   # User calls LN Service LNURL Withdraw Request
   local withdrawRequestResponse=$(call_lnservice_withdraw_request "${urlSuffix}")
@@ -703,6 +702,17 @@ fallback2() {
   else
     trace 2 "[fallback2] EXPIRED!"
   fi
+
+  trace 3 "[fallback2] Waiting for fallback batched callback..."
+
+  wait
+
+  # fallback paid callback
+  start_callback_server
+  # 0-conf callback
+  start_callback_server ${zeroconfport}
+  # 1-conf callback
+  start_callback_server ${oneconfport}
 
   trace 3 "[fallback2] Waiting for fallback execution and a block mined..."
 

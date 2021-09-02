@@ -4,13 +4,13 @@ class CreateLnurlWithdrawValidator {
   static validateRequest(request: IReqCreateLnurlWithdraw): boolean {
     if (request.msatoshi) {
       // Mandatory msatoshi found
-      if (request.expiration) {
-        if (!isNaN(new Date(request.expiration).valueOf())) {
-          // Expiration date is valid
+      if (request.expiresAt) {
+        if (!isNaN(new Date(request.expiresAt).valueOf())) {
+          // expiresAt date is valid
           return true;
         }
       } else {
-        // No expiration date
+        // No expiresAt date
         return true;
       }
     }

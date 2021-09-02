@@ -9,7 +9,6 @@ import {
 import IReqCreateLnurlWithdraw from "../types/IReqCreateLnurlWithdraw";
 import IRespLnurlWithdraw from "../types/IRespLnurlWithdraw";
 import { CreateLnurlWithdrawValidator } from "../validators/CreateLnurlWithdrawValidator";
-// import { LnurlWithdrawEntity } from "../entity/LnurlWithdrawEntity";
 import IRespLnServiceWithdrawRequest from "../types/IRespLnServiceWithdrawRequest";
 import IRespLnServiceStatus from "../types/IRespLnServiceStatus";
 import IReqLnurlWithdraw from "../types/IReqLnurlWithdraw";
@@ -318,10 +317,10 @@ class LnurlWithdraw {
         // Check expiration
 
         if (
-          lnurlWithdrawEntity.expiration &&
-          lnurlWithdrawEntity.expiration < new Date()
+          lnurlWithdrawEntity.expiresAt &&
+          lnurlWithdrawEntity.expiresAt < new Date()
         ) {
-          //Expired LNURL
+          // Expired LNURL
           logger.debug("LnurlWithdraw.lnServiceWithdrawRequest: expired!");
 
           result = { status: "ERROR", reason: "Expired LNURL-Withdraw" };
@@ -388,8 +387,8 @@ class LnurlWithdraw {
 
           // Check expiration
           if (
-            lnurlWithdrawEntity.expiration &&
-            lnurlWithdrawEntity.expiration < new Date()
+            lnurlWithdrawEntity.expiresAt &&
+            lnurlWithdrawEntity.expiresAt < new Date()
           ) {
             // Expired LNURL
             logger.debug("LnurlWithdraw.lnServiceWithdraw: expired!");
@@ -487,55 +486,98 @@ class LnurlWithdraw {
 
     let lnurlWithdrawEntitys: LnurlWithdrawEntity[] = [];
     if (lnurlWithdrawEntity) {
-      if (lnurlWithdrawEntity.webhookUrl && !lnurlWithdrawEntity.calledback) {
-        lnurlWithdrawEntitys = [lnurlWithdrawEntity];
-      }
+      lnurlWithdrawEntitys = [lnurlWithdrawEntity];
     } else {
       lnurlWithdrawEntitys = await this._lnurlDB.getNonCalledbackLnurlWithdraws();
     }
 
     let response;
-    let postdata;
+    let postdata = {};
     lnurlWithdrawEntitys.forEach(async (lnurlWithdrawEntity) => {
       logger.debug(
         "LnurlWithdraw.processCallbacks, lnurlWithdrawEntity=",
         lnurlWithdrawEntity
       );
 
-      if (lnurlWithdrawEntity.withdrawnTs) {
-        // Call webhook only if withdraw done
-
-        if (lnurlWithdrawEntity.fallbackDone) {
-          // If paid through fallback...
+      if (
+        !lnurlWithdrawEntity.deleted &&
+        lnurlWithdrawEntity.webhookUrl &&
+        lnurlWithdrawEntity.webhookUrl.length > 0 &&
+        lnurlWithdrawEntity.withdrawnDetails &&
+        lnurlWithdrawEntity.withdrawnDetails.length > 0
+      ) {
+        if (
+          !lnurlWithdrawEntity.batchedCalledback &&
+          lnurlWithdrawEntity.batchRequestId
+        ) {
+          // Payment has been batched, not yet paid
           postdata = {
+            action: "fallbackBatched",
             lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
             btcFallbackAddress: lnurlWithdrawEntity.btcFallbackAddress,
             details: lnurlWithdrawEntity.withdrawnDetails
               ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
               : null,
           };
-        } else {
-          // If paid through LN...
-          postdata = {
-            lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
-            bolt11: lnurlWithdrawEntity.bolt11,
-            lnPayResponse: lnurlWithdrawEntity.withdrawnDetails
-              ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
-              : null,
-          };
+          logger.debug(
+            "LnurlWithdraw.processCallbacks, batched, postdata=",
+            postdata
+          );
+
+          response = await Utils.post(lnurlWithdrawEntity.webhookUrl, postdata);
+
+          if (response.status >= 200 && response.status < 400) {
+            logger.debug(
+              "LnurlWithdraw.processCallbacks, batched, webhook called back"
+            );
+
+            lnurlWithdrawEntity.batchedCalledback = true;
+            lnurlWithdrawEntity.batchedCalledbackTs = new Date();
+            await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
+          }
         }
-        logger.debug("LnurlWithdraw.processCallbacks, postdata=", postdata);
 
-        response = await Utils.post(
-          lnurlWithdrawEntity.webhookUrl || "",
-          postdata
-        );
-        if (response.status >= 200 && response.status < 400) {
-          logger.debug("LnurlWithdraw.processCallbacks, webhook called back");
+        if (!lnurlWithdrawEntity.paidCalledback && lnurlWithdrawEntity.paid) {
+          // Payment has been sent
 
-          lnurlWithdrawEntity.calledback = true;
-          lnurlWithdrawEntity.calledbackTs = new Date();
-          await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
+          if (lnurlWithdrawEntity.fallbackDone) {
+            // If paid through fallback...
+            postdata = {
+              action: "fallbackPaid",
+              lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
+              btcFallbackAddress: lnurlWithdrawEntity.btcFallbackAddress,
+              details: lnurlWithdrawEntity.withdrawnDetails
+                ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
+                : null,
+            };
+          } else {
+            // If paid through LN...
+            postdata = {
+              action: "lnPaid",
+              lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId,
+              bolt11: lnurlWithdrawEntity.bolt11,
+              lnPayResponse: lnurlWithdrawEntity.withdrawnDetails
+                ? JSON.parse(lnurlWithdrawEntity.withdrawnDetails)
+                : null,
+            };
+          }
+
+          logger.debug(
+            "LnurlWithdraw.processCallbacks, paid, postdata=",
+            postdata
+          );
+
+          response = await Utils.post(lnurlWithdrawEntity.webhookUrl, postdata);
+
+          if (response.status >= 200 && response.status < 400) {
+            logger.debug(
+              "LnurlWithdraw.processCallbacks, paid, webhook called back"
+            );
+
+            lnurlWithdrawEntity.paidCalledback = true;
+            lnurlWithdrawEntity.paidCalledbackTs = new Date();
+            await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
+          }
         }
       }
     });
@@ -562,12 +604,6 @@ class LnurlWithdraw {
         if (lnurlWithdrawEntity.batchRequestId) {
           logger.debug("LnurlWithdraw.processFallbacks, already batched!");
         } else {
-          // externalId?: string;
-          // description?: string;
-          // address: string;
-          // amount: number;
-          // webhookUrl?: string;
-
           const batchRequestTO: IReqBatchRequest = {
             externalId: lnurlWithdrawEntity.externalId || undefined,
             description: lnurlWithdrawEntity.description || undefined,
@@ -603,6 +639,10 @@ class LnurlWithdraw {
           lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
             lnurlWithdrawEntity
           );
+
+          if (lnurlWithdrawEntity.batchRequestId) {
+            this.processCallbacks(lnurlWithdrawEntity);
+          }
         }
       } else {
         logger.debug("LnurlWithdraw.processFallbacks, not batched fallback");

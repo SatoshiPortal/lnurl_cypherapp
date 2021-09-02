@@ -40,17 +40,6 @@ class LnurlDBPrisma {
   async saveLnurlWithdraw(
     lnurlWithdrawEntity: LnurlWithdrawEntity
   ): Promise<LnurlWithdrawEntity> {
-    // let lw;
-    // if (lnurlWithdrawEntity.lnurlWithdrawId) {
-    //   lw = await this._db?.lnurlWithdrawEntity.update({
-    //     where: { lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId },
-    //     data: lnurlWithdrawEntity,
-    //   });
-    // } else {
-    //   lw = await this._db?.lnurlWithdrawEntity.create({
-    //     data: lnurlWithdrawEntity,
-    //   });
-    // }
     const lw = await this._db?.lnurlWithdrawEntity.upsert({
       where: { secretToken: lnurlWithdrawEntity.secretToken },
       update: lnurlWithdrawEntity,
@@ -67,21 +56,6 @@ class LnurlDBPrisma {
       where: { secretToken },
     });
 
-    // .f..findUnique(
-
-    // ).ff manager
-    //   .getRepository(LnurlWithdrawEntity)
-    //   .findOne({ where: { secretToken } });
-
-    // // We need to instantiate a new Date with expiration:
-    // // https://github.com/typeorm/typeorm/issues/4320
-    // if (lw) {
-    //   if (lw.expiration) lw.expiration = new Date(lw.expiration);
-    //   lw.active = ((lw.active as unknown) as number) == 1;
-    //   lw.calledback = ((lw.calledback as unknown) as number) == 1;
-    //   lw.batchFallback = ((lw.batchFallback as unknown) as number) == 1;
-    // }
-
     return lw as LnurlWithdrawEntity;
   }
 
@@ -91,19 +65,6 @@ class LnurlDBPrisma {
     const lw = await this._db?.lnurlWithdrawEntity.findUnique({
       where: { batchRequestId },
     });
-
-    // .manager
-    //   .getRepository(LnurlWithdrawEntity)
-    //   .findOne({ where: { batchRequestId } });
-
-    // // We need to instantiate a new Date with expiration:
-    // // https://github.com/typeorm/typeorm/issues/4320
-    // if (lw) {
-    //   if (lw.expiration) lw.expiration = new Date(lw.expiration);
-    //   lw.active = ((lw.active as unknown) as number) == 1;
-    //   lw.calledback = ((lw.calledback as unknown) as number) == 1;
-    //   lw.batchFallback = ((lw.batchFallback as unknown) as number) == 1;
-    // }
 
     return lw as LnurlWithdrawEntity;
   }
@@ -115,19 +76,6 @@ class LnurlDBPrisma {
       where: { lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId },
     });
 
-    // .manager
-    //   .getRepository(LnurlWithdrawEntity)
-    //   .findOne(lnurlWithdrawEntity);
-
-    // // We need to instantiate a new Date with expiration:
-    // // https://github.com/typeorm/typeorm/issues/4320
-    // if (lw) {
-    //   if (lw.expiration) lw.expiration = new Date(lw.expiration);
-    //   lw.active = ((lw.active as unknown) as number) == 1;
-    //   lw.calledback = ((lw.calledback as unknown) as number) == 1;
-    //   lw.batchFallback = ((lw.batchFallback as unknown) as number) == 1;
-    // }
-
     return lw as LnurlWithdrawEntity;
   }
 
@@ -138,19 +86,6 @@ class LnurlDBPrisma {
       where: { lnurlWithdrawId: lnurlWithdrawId },
     });
 
-    // .manager
-    //   .getRepository(LnurlWithdrawEntity)
-    //   .findOne(lnurlWithdrawId);
-
-    // // We need to instantiate a new Date with expiration:
-    // // https://github.com/typeorm/typeorm/issues/4320
-    // if (lw) {
-    //   if (lw.expiration) lw.expiration = new Date(lw.expiration);
-    //   lw.active = ((lw.active as unknown) as number) == 1;
-    //   lw.calledback = ((lw.calledback as unknown) as number) == 1;
-    //   lw.batchFallback = ((lw.batchFallback as unknown) as number) == 1;
-    // }
-
     return lw as LnurlWithdrawEntity;
   }
 
@@ -158,38 +93,17 @@ class LnurlDBPrisma {
     const lws = await this._db?.lnurlWithdrawEntity.findMany({
       where: {
         deleted: false,
-        paid: true,
-        calledback: false,
         webhookUrl: { not: null },
         withdrawnDetails: { not: null },
-        withdrawnTs: { not: null },
+        // withdrawnTs: { not: null },
+        AND: [
+          { OR: [{ paid: true }, { batchRequestId: { not: null } }] },
+          { OR: [{ paidCalledback: false }, { batchedCalledback: false }] },
+        ],
       },
     });
-    // const lws = await this._db?.manager
-    //   .getRepository(LnurlWithdrawEntity)
-    //   .find({
-    //     where: {
-    //       active: false,
-    //       calledback: false,
-    //       webhookUrl: Not(IsNull()),
-    //       withdrawnDetails: Not(IsNull()),
-    //       withdrawnTimestamp: Not(IsNull()),
-    //     },
-    //   });
-
-    // // We need to instantiate a new Date with expiration:
-    // // https://github.com/typeorm/typeorm/issues/4320
-    // if (lws && lws.length > 0) {
-    //   lws.forEach((lw) => {
-    //     if (lw.expiration) lw.expiration = new Date(lw.expiration);
-    //     lw.active = ((lw.active as unknown) as number) == 1;
-    //     lw.calledback = ((lw.calledback as unknown) as number) == 1;
-    //     lw.batchFallback = ((lw.batchFallback as unknown) as number) == 1;
-    //   });
-    // }
 
     return lws as LnurlWithdrawEntity[];
-    // return lws;
   }
 
   async getFallbackLnurlWithdraws(): Promise<LnurlWithdrawEntity[]> {
@@ -197,7 +111,7 @@ class LnurlDBPrisma {
       where: {
         deleted: false,
         paid: false,
-        expiration: { lt: new Date() },
+        expiresAt: { lt: new Date() },
         fallbackDone: false,
         AND: [
           { NOT: { btcFallbackAddress: null } },
@@ -205,47 +119,8 @@ class LnurlDBPrisma {
         ],
       },
     });
-    // const lws = await this._db?.manager
-    //   .getRepository(LnurlWithdrawEntity)
-    //   .find({
-    //     where: [
-    //       {
-    //         active: true,
-    //         // expiration: LessThan(Math.round(new Date().valueOf() / 1000)),
-    //         expiration: LessThan(new Date().toISOString()),
-    //         btcFallbackAddress: Not(IsNull()),
-    //       },
-    //       {
-    //         active: true,
-    //         expiration: LessThan(new Date().toISOString()),
-    //         btcFallbackAddress: Not(Equal("")),
-    //       },
-    //     ],
-    //     // where: {
-    //     //   {
-    //     //     active: true,
-    //     //     expiration: LessThan(new Date()),
-    //     //   },{
-    //     //   [
-    //     //     { btcFallbackAddress: Not(IsNull()) },
-    //     //     { btcFallbackAddress: Not(Equal("")) },
-    //     //   ]},
-    //     //   }
-    //   });
-
-    // // We need to instantiate a new Date with expiration:
-    // // https://github.com/typeorm/typeorm/issues/4320
-    // if (lws && lws.length > 0) {
-    //   lws.forEach((lw) => {
-    //     if (lw.expiration) lw.expiration = new Date(lw.expiration);
-    //     lw.active = ((lw.active as unknown) as number) == 1;
-    //     lw.calledback = ((lw.calledback as unknown) as number) == 1;
-    //     lw.batchFallback = ((lw.batchFallback as unknown) as number) == 1;
-    //   });
-    // }
 
     return lws as LnurlWithdrawEntity[];
-    // return [];
   }
 }
 

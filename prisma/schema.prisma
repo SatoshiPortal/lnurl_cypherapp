@@ -15,11 +15,13 @@ model LnurlWithdrawEntity {
   externalId          String?
   msatoshi            Int
   description         String?
-  expiration          DateTime?
+  expiresAt           DateTime?
   secretToken         String    @unique
   webhookUrl          String?
-  calledback          Boolean   @default(false)
-  calledbackTs        DateTime?
+  paidCalledback      Boolean   @default(false)
+  paidCalledbackTs    DateTime?
+  batchedCalledback   Boolean   @default(false)
+  batchedCalledbackTs DateTime?
   lnurl               String
   bolt11              String?
   btcFallbackAddress  String?
