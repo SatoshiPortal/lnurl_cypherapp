@@ -1,7 +1,6 @@
 // lib/HttpServer.ts
 import express from "express";
 import logger from "./Log2File";
-import AsyncLock from "async-lock";
 import LnurlConfig from "../config/LnurlConfig";
 import fs from "fs";
 import { LnurlWithdraw } from "./LnurlWithdraw";
@@ -15,12 +14,10 @@ import IRespCreateLnurlWithdraw from "../types/IRespLnurlWithdraw";
 import IReqCreateLnurlWithdraw from "../types/IReqCreateLnurlWithdraw";
 import IReqLnurlWithdraw from "../types/IReqLnurlWithdraw";
 import IRespLnServiceWithdrawRequest from "../types/IRespLnServiceWithdrawRequest";
-import IRespLnServiceStatus from "../types/IRespLnServiceStatus";
 
 class HttpServer {
   // Create a new express application instance
   private readonly _httpServer: express.Application = express();
-  private readonly _lock = new AsyncLock();
   private _lnurlConfig: LnurlConfig = JSON.parse(
     fs.readFileSync("data/config.json", "utf8")
   );
@@ -110,19 +107,8 @@ class HttpServer {
         }
 
         case "deleteLnurlWithdraw": {
-          let result: IRespCreateLnurlWithdraw = {};
-
-          result = await this._lock.acquire(
-            "modifLnurlWithdraw",
-            async (): Promise<IRespCreateLnurlWithdraw> => {
-              logger.debug(
-                "acquired lock modifLnurlWithdraw in deleteLnurlWithdraw"
-              );
-              return await this.deleteLnurlWithdraw(reqMessage.params || {});
-            }
-          );
-          logger.debug(
-            "released lock modifLnurlWithdraw in deleteLnurlWithdraw"
+          const result: IRespCreateLnurlWithdraw = await this.deleteLnurlWithdraw(
+            reqMessage.params || {}
           );
 
           response.result = result.result;
@@ -138,16 +124,7 @@ class HttpServer {
         }
 
         case "processFallbacks": {
-          await this._lock.acquire(
-            "modifLnurlWithdraw",
-            async (): Promise<void> => {
-              logger.debug(
-                "acquired lock modifLnurlWithdraw in processFallbacks"
-              );
-              await this._lnurlWithdraw.processFallbacks();
-            }
-          );
-          logger.debug("released lock modifLnurlWithdraw in processFallbacks");
+          this._lnurlWithdraw.processFallbacks();
 
           response.result = {};
           break;
@@ -203,21 +180,8 @@ class HttpServer {
           req.query
         );
 
-        let response: IRespLnServiceWithdrawRequest = {};
-
-        response = await this._lock.acquire(
-          "modifLnurlWithdraw",
-          async (): Promise<IRespLnServiceWithdrawRequest> => {
-            logger.debug(
-              "acquired lock deleteLnurlWithdraw in LN Service LNURL Withdraw Request"
-            );
-            return await this._lnurlWithdraw.lnServiceWithdrawRequest(
-              req.query.s as string
-            );
-          }
-        );
-        logger.debug(
-          "released lock deleteLnurlWithdraw in LN Service LNURL Withdraw Request"
+        const response: IRespLnServiceWithdrawRequest = await this._lnurlWithdraw.lnServiceWithdrawRequest(
+          req.query.s as string
         );
 
         if (response.status) {
@@ -235,24 +199,11 @@ class HttpServer {
       async (req, res) => {
         logger.info(this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX + ":", req.query);
 
-        let response: IRespLnServiceStatus = {};
-
-        response = await this._lock.acquire(
-          "deleteLnurlWithdraw",
-          async (): Promise<IRespLnServiceStatus> => {
-            logger.debug(
-              "acquired lock modifLnurlWithdraw in LN Service LNURL Withdraw"
-            );
-            return await this._lnurlWithdraw.lnServiceWithdraw({
-              k1: req.query.k1,
-              pr: req.query.pr,
-              balanceNotify: req.query.balanceNotify,
-            } as IReqLnurlWithdraw);
-          }
-        );
-        logger.debug(
-          "released lock modifLnurlWithdraw in LN Service LNURL Withdraw"
-        );
+        const response = await this._lnurlWithdraw.lnServiceWithdraw({
+          k1: req.query.k1,
+          pr: req.query.pr,
+          balanceNotify: req.query.balanceNotify,
+        } as IReqLnurlWithdraw);
 
         if (response.status === "ERROR") {
           res.status(400).json(response);
