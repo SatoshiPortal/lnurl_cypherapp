@@ -444,63 +444,89 @@ class LnurlWithdraw {
               } else {
                 logger.debug("LnurlWithdraw.lnServiceWithdraw: not expired!");
 
-                lnurlWithdrawEntity.bolt11 = params.pr;
-                const lnPayParams = {
-                  bolt11: params.pr,
-                  expectedMsatoshi: lnurlWithdrawEntity.msatoshi || undefined,
-                  expectedDescription:
-                    lnurlWithdrawEntity.description || undefined,
-                };
-                let resp: IRespLnPay = await this._cyphernodeClient.lnPay(
-                  lnPayParams
-                );
-
-                if (resp.error) {
+                if (
+                  !lnurlWithdrawEntity.bolt11 ||
+                  lnurlWithdrawEntity.bolt11 === params.pr
+                ) {
                   logger.debug(
-                    "LnurlWithdraw.lnServiceWithdraw, ln_pay error, let's retry!"
+                    "LnurlWithdraw.lnServiceWithdraw: new bolt11 or same as previous!"
                   );
 
-                  resp = await this._cyphernodeClient.lnPay(lnPayParams);
-                }
-
-                if (resp.error) {
-                  logger.debug(
-                    "LnurlWithdraw.lnServiceWithdraw, ln_pay error!"
+                  lnurlWithdrawEntity.bolt11 = params.pr;
+                  const lnPayParams = {
+                    bolt11: params.pr,
+                    expectedMsatoshi: lnurlWithdrawEntity.msatoshi || undefined,
+                    expectedDescription:
+                      lnurlWithdrawEntity.description || undefined,
+                  };
+                  let resp: IRespLnPay = await this._cyphernodeClient.lnPay(
+                    lnPayParams
                   );
 
-                  result = { status: "ERROR", reason: resp.error.message };
-
-                  lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
-                    resp.error
-                  );
-
-                  lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-                    lnurlWithdrawEntity
-                  );
-                } else {
-                  logger.debug(
-                    "LnurlWithdraw.lnServiceWithdraw, ln_pay success!"
-                  );
-
-                  result = { status: "OK" };
-
-                  lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
-                    resp.result
-                  );
-                  lnurlWithdrawEntity.withdrawnTs = new Date();
-                  lnurlWithdrawEntity.paid = true;
-
-                  lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-                    lnurlWithdrawEntity
-                  );
-
-                  if (lnurlWithdrawEntity.webhookUrl) {
+                  if (resp.error) {
                     logger.debug(
-                      "LnurlWithdraw.lnServiceWithdraw, about to call back the webhookUrl..."
+                      "LnurlWithdraw.lnServiceWithdraw, ln_pay error, let's retry #1!"
                     );
 
-                    this.processCallbacks(lnurlWithdrawEntity);
+                    resp = await this._cyphernodeClient.lnPay(lnPayParams);
                   }
+
+                  if (resp.error) {
+                    logger.debug(
+                      "LnurlWithdraw.lnServiceWithdraw, ln_pay error, let's retry #2!"
+                    );
+
+                    resp = await this._cyphernodeClient.lnPay(lnPayParams);
+                  }
+
+                  if (resp.error) {
+                    logger.debug(
+                      "LnurlWithdraw.lnServiceWithdraw, ln_pay error!"
+                    );
+
+                    result = { status: "ERROR", reason: resp.error.message };
+
+                    lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+                      resp.error
+                    );
+
+                    lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+                      lnurlWithdrawEntity
+                    );
+                  } else {
+                    logger.debug(
+                      "LnurlWithdraw.lnServiceWithdraw, ln_pay success!"
+                    );
+
+                    result = { status: "OK" };
+
+                    lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+                      resp.result
+                    );
+                    lnurlWithdrawEntity.withdrawnTs = new Date();
+                    lnurlWithdrawEntity.paid = true;
+
+                    lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+                      lnurlWithdrawEntity
+                    );
+
+                    if (lnurlWithdrawEntity.webhookUrl) {
+                      logger.debug(
+                        "LnurlWithdraw.lnServiceWithdraw, about to call back the webhookUrl..."
+                      );
+
+                      this.processCallbacks(lnurlWithdrawEntity);
+                    }
+                  }
+                } else {
+                  logger.debug(
+                    "LnurlWithdraw.lnServiceWithdraw, trying to redeem twice with different bolt11!"
+                  );
+
+                  result = {
+                    status: "ERROR",
+                    reason: "Trying to redeem twice with different bolt11",
+                  };
                 }
               }
             } else {
