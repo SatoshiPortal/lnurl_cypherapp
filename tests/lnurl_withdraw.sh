@@ -138,6 +138,28 @@ delete_lnurl_withdraw() {
   echo "${deleteLnurlWithdraw}"
 }
 
+force_lnurl_fallback() {
+  trace 2 "\n\n[force_lnurl_fallback] ${BCyan}Force LNURL Fallback...${Color_Off}\n"
+
+  local lnurl_withdraw_id=${1}
+  trace 3 "[force_lnurl_fallback] lnurl_withdraw_id=${lnurl_withdraw_id}"
+
+  # Service forces LNURL Fallback
+  data='{"id":0,"method":"forceFallback","params":{"lnurlWithdrawId":'${lnurl_withdraw_id}'}}'
+  trace 3 "[force_lnurl_fallback] data=${data}"
+  trace 3 "[force_lnurl_fallback] Calling forceFallback..."
+  local forceFallback=$(curl -sd "${data}" -H "Content-Type: application/json" lnurl:8000/api)
+  trace 3 "[force_lnurl_fallback] forceFallback=${forceFallback}"
+
+  local expiresAt=$(echo "${forceFallback}" | jq ".result.expiresAt")
+  if [ "${expiresAt}" -ge "$(date -u +"%s")" ]; then
+    trace 2 "[force_lnurl_fallback] ${On_Red}${BBlack} NOT EXPIRED!                                                                          ${Color_Off}"
+    return 1
+  fi
+
+  echo "${forceFallback}"
+}
+
 decode_lnurl() {
   trace 2 "\n\n[decode_lnurl] ${BCyan}Decoding LNURL...${Color_Off}\n"
 
@@ -721,6 +743,91 @@ fallback2() {
   trace 1 "\n\n[fallback2] ${On_IGreen}${BBlack} Fallback 2: SUCCESS!                                                                       ${Color_Off}\n"
 }
 
+fallback3() {
+  # fallback 3, force fallback
+  #
+  # 1. Cyphernode.getnewaddress -> btcfallbackaddr
+  # 2. Cyphernode.watch btcfallbackaddr
+  # 3. Listen to watch webhook
+  # 4. Create a LNURL Withdraw with expiration=tomorrow and a btcfallbackaddr
+  # 5. Get it and compare
+  # 6. User calls LNServiceWithdrawRequest -> works, not expired!
+  # 7. Call forceFallback
+  # 7. Fallback should be triggered, LNURL callback called (port 1111), Cyphernode's watch callback called (port 1112)
+  # 8. Mined block and Cyphernode's confirmed watch callback called (port 1113)
+
+  trace 1 "\n\n[fallback3] ${On_Yellow}${BBlack} Fallback 3:                                                                        ${Color_Off}\n"
+
+  local callbackserver=${1}
+  local callbackport=${2}
+  local lnServicePrefix=${3}
+
+  local zeroconfport=$((${callbackserverport}+1))
+  local oneconfport=$((${callbackserverport}+2))
+  local callbackurlCnWatch0conf="http://${callbackservername}:${zeroconfport}"
+  local callbackurlCnWatch1conf="http://${callbackservername}:${oneconfport}"
+  local callbackurl="http://${callbackservername}:${callbackserverport}"
+
+  # Get new address
+  local data='{"label":"lnurl_fallback_test"}'
+  local btcfallbackaddr=$(curl -sd "${data}" -H "Content-Type: application/json" proxy:8888/getnewaddress)
+  btcfallbackaddr=$(echo "${btcfallbackaddr}" | jq -r ".address")
+  trace 3 "[fallback3] btcfallbackaddr=${btcfallbackaddr}"
+
+  # Watch the address
+  data='{"address":"'${btcfallbackaddr}'","unconfirmedCallbackURL":"'${callbackurlCnWatch0conf}'/callback0conf","confirmedCallbackURL":"'${callbackurlCnWatch1conf}'/callback1conf"}'
+  local watchresponse=$(curl -sd "${data}" -H "Content-Type: application/json" proxy:8888/watch)
+  trace 3 "[fallback3] watchresponse=${watchresponse}"
+
+  # Service creates LNURL Withdraw
+  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 86400 "" "${btcfallbackaddr}")
+  trace 3 "[fallback3] createLnurlWithdraw=${createLnurlWithdraw}"
+  local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
+  trace 3 "[fallback3] lnurl=${lnurl}"
+
+  local lnurl_withdraw_id=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurlWithdrawId")
+  local get_lnurl_withdraw=$(get_lnurl_withdraw ${lnurl_withdraw_id})
+  trace 3 "[fallback3] get_lnurl_withdraw=${get_lnurl_withdraw}"
+  local equals=$(jq --argjson a "${createLnurlWithdraw}" --argjson b "${get_lnurl_withdraw}" -n '$a == $b')
+  trace 3 "[fallback3] equals=${equals}"
+  if [ "${equals}" = "true" ]; then
+    trace 2 "[fallback3] EQUALS!"
+  else
+    trace 1 "\n\n[fallback3] ${On_Red}${BBlack} Fallback 3: NOT EQUALS!                                                                          ${Color_Off}\n"
+    return 1
+  fi
+
+  # Decode LNURL
+  local urlSuffix=$(decode_lnurl "${lnurl}" "${lnServicePrefix}")
+  trace 3 "[fallback3] urlSuffix=${urlSuffix}"
+
+  start_callback_server
+  start_callback_server ${zeroconfport}
+  start_callback_server ${oneconfport}
+
+  # User calls LN Service LNURL Withdraw Request
+  local withdrawRequestResponse=$(call_lnservice_withdraw_request "${urlSuffix}")
+  trace 3 "[fallback3] withdrawRequestResponse=${withdrawRequestResponse}"
+
+  echo "${withdrawRequestResponse}" | grep -qi "expired"
+  if [ "$?" -eq "0" ]; then
+    trace 1 "\n\n[fallback3] ${On_Red}${BBlack} Fallback 3: EXPIRED!                                                                         ${Color_Off}\n"
+    return 1
+  else
+    trace 2 "[fallback3] NOT EXPIRED, good!"
+  fi
+
+  trace 3 "[fallback3] Forcing fallback..."
+  local force_lnurl_fallback=$(force_lnurl_fallback ${lnurl_withdraw_id})
+  trace 3 "[fallback3] force_lnurl_fallback=${force_lnurl_fallback}"
+  
+  trace 3 "[fallback3] Waiting for fallback execution and a block mined..."
+
+  wait
+
+  trace 1 "\n\n[fallback3] ${On_IGreen}${BBlack} Fallback 3: SUCCESS!                                                                       ${Color_Off}\n"
+}
+
 start_callback_server() {
   trace 1 "\n\n[start_callback_server] ${BCyan}Let's start a callback server!...${Color_Off}\n"
 
@@ -754,12 +861,13 @@ trace 3 "lnurlConfig=${lnurlConfig}"
 lnServicePrefix=$(echo "${lnurlConfig}" | jq -r '.result | "\(.LN_SERVICE_SERVER)"')
 trace 3 "lnServicePrefix=${lnServicePrefix}"
 
-happy_path "${callbackurl}" "${lnServicePrefix}" \
-&& expired1 "${callbackurl}" "${lnServicePrefix}" \
-&& expired2 "${callbackurl}" "${lnServicePrefix}" \
-&& deleted1 "${callbackurl}" "${lnServicePrefix}" \
-&& deleted2 "${callbackurl}" "${lnServicePrefix}" \
-&& fallback1 "${callbackservername}" "${callbackserverport}" "${lnServicePrefix}" \
-&& fallback2 "${callbackservername}" "${callbackserverport}" "${lnServicePrefix}"
+# happy_path "${callbackurl}" "${lnServicePrefix}" \
+# && expired1 "${callbackurl}" "${lnServicePrefix}" \
+# && expired2 "${callbackurl}" "${lnServicePrefix}" \
+# && deleted1 "${callbackurl}" "${lnServicePrefix}" \
+# && deleted2 "${callbackurl}" "${lnServicePrefix}" \
+# && fallback1 "${callbackservername}" "${callbackserverport}" "${lnServicePrefix}" \
+# && fallback2 "${callbackservername}" "${callbackserverport}" "${lnServicePrefix}" \
+fallback3 "${callbackservername}" "${callbackserverport}" "${lnServicePrefix}"
 
 trace 1 "\n\n${BCyan}Finished, deleting this test container...${Color_Off}\n"

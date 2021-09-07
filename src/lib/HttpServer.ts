@@ -59,6 +59,17 @@ class HttpServer {
     return await this._lnurlWithdraw.deleteLnurlWithdraw(lnurlWithdrawId);
   }
 
+  async forceFallback(
+    params: object | undefined
+  ): Promise<IRespCreateLnurlWithdraw> {
+    logger.debug("/forceFallback params:", params);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const lnurlWithdrawId = parseInt((params as any).lnurlWithdrawId);
+
+    return await this._lnurlWithdraw.forceFallback(lnurlWithdrawId);
+  }
+
   async getLnurlWithdraw(
     params: object | undefined
   ): Promise<IRespCreateLnurlWithdraw> {
@@ -127,6 +138,16 @@ class HttpServer {
           this._lnurlWithdraw.processFallbacks();
 
           response.result = {};
+          break;
+        }
+
+        case "forceFallback": {
+          const result: IRespCreateLnurlWithdraw = await this.forceFallback(
+            reqMessage.params || {}
+          );
+
+          response.result = result.result;
+          response.error = result.error;
           break;
         }
 

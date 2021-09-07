@@ -811,6 +811,98 @@ class LnurlWithdraw {
     logger.debug("released lock processFallbacks in processFallbacks");
   }
 
+  async forceFallback(lnurlWithdrawId: number): Promise<IRespLnurlWithdraw> {
+    const result: IRespLnurlWithdraw = await this._lock.acquire(
+      "processFallbacks",
+      async (): Promise<IRespLnurlWithdraw> => {
+        logger.debug("acquired lock processFallbacks in forceFallback");
+
+        logger.info(
+          "LnurlWithdraw.forceFallback, lnurlWithdrawId:",
+          lnurlWithdrawId
+        );
+
+        const response: IRespLnurlWithdraw = {};
+
+        if (lnurlWithdrawId) {
+          // Inputs are valid.
+          logger.debug("LnurlWithdraw.forceFallback, Inputs are valid.");
+
+          let lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawById(
+            lnurlWithdrawId
+          );
+
+          // if (lnurlWithdrawEntity != null && lnurlWithdrawEntity.active) {
+          if (lnurlWithdrawEntity == null) {
+            logger.debug(
+              "LnurlWithdraw.forceFallback, lnurlWithdraw not found"
+            );
+
+            response.error = {
+              code: ErrorCodes.InvalidRequest,
+              message: "LnurlWithdraw not found",
+            };
+          } else if (!lnurlWithdrawEntity.deleted) {
+            if (!lnurlWithdrawEntity.paid) {
+              logger.debug(
+                "LnurlWithdraw.forceFallback, unpaid lnurlWithdrawEntity found for this lnurlWithdrawId!"
+              );
+
+              const yesterday = new Date();
+              yesterday.setDate(yesterday.getDate() - 1);
+              lnurlWithdrawEntity.expiresAt = yesterday;
+              lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+                lnurlWithdrawEntity
+              );
+
+              const lnurlDecoded = await Utils.decodeBech32(
+                lnurlWithdrawEntity?.lnurl || ""
+              );
+
+              response.result = Object.assign(lnurlWithdrawEntity, {
+                lnurlDecoded,
+              });
+            } else {
+              // LnurlWithdraw already paid
+              logger.debug(
+                "LnurlWithdraw.forceFallback, LnurlWithdraw already paid."
+              );
+
+              response.error = {
+                code: ErrorCodes.InvalidRequest,
+                message: "LnurlWithdraw already paid",
+              };
+            }
+          } else {
+            // LnurlWithdraw already deactivated
+            logger.debug(
+              "LnurlWithdraw.forceFallback, LnurlWithdraw already deactivated."
+            );
+
+            response.error = {
+              code: ErrorCodes.InvalidRequest,
+              message: "LnurlWithdraw already deactivated",
+            };
+          }
+        } else {
+          // There is an error with inputs
+          logger.debug(
+            "LnurlWithdraw.forceFallback, there is an error with inputs."
+          );
+
+          response.error = {
+            code: ErrorCodes.InvalidRequest,
+            message: "Invalid arguments",
+          };
+        }
+
+        return response;
+      }
+    );
+    logger.debug("released lock processFallbacks in forceFallback");
+    return result;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async processBatchWebhook(webhookBody: any): Promise<IResponseMessage> {
     logger.info("LnurlWithdraw.processBatchWebhook,", webhookBody);

@@ -17,6 +17,7 @@ LNURL cypherapp for cyphernode
 2. If Service deleted the LNURL, withdraw will fail
 3. If there's a fallback Bitcoin address on the LNURL, when expired, LNURL app will send amount on-chain
 4. If batching is activated on fallback, the fallback will be sent to the Batcher
+5. Because LN payments can be "stuck" and may eventually be successful, we reject subsequent withdraw requests that is using different bolt11 than the first request.
 
 ## LNURL-withdraw API endpoints
 
@@ -193,6 +194,54 @@ Response:
     LN_SERVICE_WITHDRAW_CTX: string;
     RETRY_WEBHOOKS_TIMEOUT: number;
     CHECK_EXPIRATION_TIMEOUT: number;
+  },
+  error?: {
+    code: number;
+    message: string;
+    data?: D;
+  }
+}
+```
+
+### forceFallback
+
+This will rewing the LNURL expiration in the past to make it elligible to fallback on next check.
+
+Request:
+
+```TypeScript
+{
+  lnurlWithdrawId: number;
+}
+```
+
+Response:
+
+```TypeScript
+{
+  result?: {
+    lnurlWithdrawId: number;
+    externalId: string | null;
+    msatoshi: number;
+    description: string | null;
+    expiration: Date | null;
+    secretToken: string;
+    webhookUrl: string | null;
+    calledback: boolean;
+    calledbackTs: Date | null;
+    lnurl: string;
+    bolt11: string | null;
+    btcFallbackAddress: string | null;
+    batchFallback: boolean;
+    batchRequestId: number | null;
+    fallbackDone: boolean;
+    withdrawnDetails: string | null;
+    withdrawnTs: Date | null;
+    paid: boolean;
+    deleted: boolean;
+    createdTs: Date;
+    updatedTs: Date;
+    lnurlDecoded: string;
   },
   error?: {
     code: number;
