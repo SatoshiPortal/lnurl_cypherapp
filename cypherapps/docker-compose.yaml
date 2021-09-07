@@ -1,0 +1,47 @@
+version: "3"
+
+services:
+  lnurl:
+    environment:
+      - "TRACING=1"
+      - "CYPHERNODE_URL=https://gatekeeper:${GATEKEEPER_PORT}"
+    image: cyphernode/lnurl:v0.1.0
+    entrypoint: ["npm", "run", "start:dev"]
+    volumes:
+      - "$APP_SCRIPT_PATH/data:/lnurl/data"
+      - "$GATEKEEPER_DATAPATH/certs/cert.pem:/lnurl/cert.pem:ro"
+      - "$LOGS_DATAPATH:/lnurl/logs"
+    networks:
+      - cyphernodeappsnet
+    restart: always
+    labels:
+      - "traefik.docker.network=cyphernodeappsnet"
+# PathPrefix won't be stripped because we don't want outsiders to access /api, only /lnurl/...
+      - "traefik.frontend.rule=PathPrefix:/lnurl"
+      - "traefik.frontend.passHostHeader=true"
+      - "traefik.enable=true"
+      - "traefik.port=8000"
+# Don't secure the PathPrefix /lnurl
+#      - "traefik.frontend.auth.basic.users=<username:bcrypt>"
+    deploy:
+      labels:
+        - "traefik.docker.network=cyphernodeappsnet"
+# PathPrefix won't be stripped because we don't want outsiders to access /api, only /lnurl/...
+        - "traefik.frontend.rule=PathPrefix:/lnurl"
+        - "traefik.frontend.passHostHeader=true"
+        - "traefik.enable=true"
+        - "traefik.port=8000"
+# Don't secure the PathPrefix /lnurl
+#        - "traefik.frontend.auth.basic.users=<username:bcrypt>"
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.io.cyphernode == true
+      restart_policy:
+        condition: "any"
+        delay: 1s
+      update_config:
+        parallelism: 1    
+networks:
+  cyphernodeappsnet:
+    external: true

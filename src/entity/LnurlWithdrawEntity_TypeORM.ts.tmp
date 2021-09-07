@@ -1,0 +1,111 @@
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  Index,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from "typeorm";
+
+// CREATE TABLE lnurl_withdraw (
+//   id INTEGER PRIMARY KEY AUTOINCREMENT,
+//   external_id TEXT,
+//   msatoshi INTEGER,
+//   description TEXT,
+//   expiration TEXT,
+//   secret_token TEXT UNIQUE,
+//   webhook_url TEXT,
+//   calledback INTEGER DEFAULT false,
+//   calledback_ts TEXT,
+//   lnurl TEXT,
+//   bolt11 TEXT,
+//   btc_fallback_addr TEXT,
+//   batch_fallback INTEGER DEFAULT false,
+//   batch_request_id INTEGER,
+//   fallback INTEGER DEFAULT false,
+//   withdrawn_details TEXT,
+//   withdrawn_ts TEXT,
+//   active INTEGER,
+//   created_ts TEXT DEFAULT CURRENT_TIMESTAMP,
+//   updated_ts TEXT DEFAULT CURRENT_TIMESTAMP
+// );
+// CREATE INDEX idx_lnurl_withdraw_description ON lnurl_withdraw (description);
+// CREATE INDEX idx_lnurl_withdraw_lnurl ON lnurl_withdraw (lnurl);
+// CREATE INDEX idx_lnurl_withdraw_bolt11 ON lnurl_withdraw (bolt11);
+// CREATE INDEX idx_lnurl_withdraw_btc_fallback_addr ON lnurl_withdraw (btc_fallback_addr);
+// CREATE INDEX idx_lnurl_withdraw_external_id ON lnurl_withdraw (external_id);
+// CREATE INDEX idx_lnurl_withdraw_batch_request_id ON lnurl_withdraw (batch_request_id);
+
+@Entity("lnurl_withdraw")
+export class LnurlWithdrawEntity {
+  @PrimaryGeneratedColumn({ name: "id" })
+  lnurlWithdrawId!: number;
+
+  @Index("idx_lnurl_withdraw_external_id")
+  @Column({ type: "text", name: "external_id", nullable: true })
+  externalId?: string;
+
+  @Column({ type: "integer", name: "msatoshi" })
+  msatoshi!: number;
+
+  @Index("idx_lnurl_withdraw_description")
+  @Column({ type: "text", name: "description", nullable: true })
+  description?: string;
+
+  @Column({ type: "text", name: "expiration", nullable: true })
+  expiration?: Date;
+
+  @Column({ type: "text", name: "secret_token", unique: true })
+  secretToken!: string;
+
+  @Column({ type: "text", name: "webhook_url", nullable: true })
+  webhookUrl?: string;
+
+  @Column({
+    type: "integer",
+    name: "calledback",
+    nullable: true,
+    default: false,
+  })
+  calledback?: boolean;
+
+  @Column({ type: "text", name: "calledback_ts", nullable: true })
+  calledbackTimestamp?: Date;
+
+  @Index("idx_lnurl_withdraw_lnurl")
+  @Column({ type: "text", name: "lnurl", nullable: true })
+  lnurl?: string;
+
+  @Index("idx_lnurl_withdraw_bolt11")
+  @Column({ type: "text", name: "bolt11", nullable: true })
+  bolt11?: string;
+
+  @Index("idx_lnurl_withdraw_btc_fallback_addr")
+  @Column({ type: "text", name: "btc_fallback_addr", nullable: true })
+  btcFallbackAddress?: string;
+
+  @Column({ type: "integer", name: "batch_fallback", default: false })
+  batchFallback?: boolean;
+
+  @Index("idx_lnurl_withdraw_batch_request_id")
+  @Column({ type: "integer", name: "batch_request_id", nullable: true })
+  batchRequestId?: number;
+
+  @Column({ type: "integer", name: "fallback", default: false })
+  fallback?: boolean;
+
+  @Column({ type: "text", name: "withdrawn_details", nullable: true })
+  withdrawnDetails?: string;
+
+  @Column({ type: "text", name: "withdrawn_ts", nullable: true })
+  withdrawnTimestamp?: Date;
+
+  @Column({ type: "integer", name: "active", nullable: true, default: true })
+  active?: boolean;
+
+  @CreateDateColumn({ type: "text", name: "created_ts" })
+  createdAt?: Date;
+
+  @UpdateDateColumn({ type: "text", name: "updated_ts" })
+  updatedAt?: Date;
+}
