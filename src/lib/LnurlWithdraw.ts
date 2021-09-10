@@ -24,6 +24,7 @@ import IReqSpend from "../types/cyphernode/IReqSpend";
 import IRespSpend from "../types/cyphernode/IRespSpend";
 import { LnurlWithdrawEntity } from "@prisma/client";
 import AsyncLock from "async-lock";
+import IReqLnListPays from "../types/cyphernode/IReqLnListPays";
 
 class LnurlWithdraw {
   private _lnurlConfig: LnurlConfig;
@@ -397,6 +398,139 @@ class LnurlWithdraw {
     return result;
   }
 
+  async processLnPayment(
+    lnurlWithdrawEntity: LnurlWithdrawEntity,
+    bolt11: string
+  ): Promise<Record<string, unknown>> {
+    logger.debug(
+      "LnurlWithdraw.processLnPayment: lnurlWithdrawEntity:",
+      lnurlWithdrawEntity
+    );
+    logger.debug("LnurlWithdraw.processLnPayment: bolt11:", bolt11);
+
+    let result;
+
+    lnurlWithdrawEntity.bolt11 = bolt11;
+    const lnPayParams = {
+      bolt11: bolt11,
+      expectedMsatoshi: lnurlWithdrawEntity.msatoshi || undefined,
+      expectedDescription: lnurlWithdrawEntity.description || undefined,
+    };
+    let resp: IRespLnPay = await this._cyphernodeClient.lnPay(lnPayParams);
+
+    if (resp.error) {
+      logger.debug(
+        "LnurlWithdraw.processLnPayment, ln_pay error, let's retry #1!"
+      );
+
+      resp = await this._cyphernodeClient.lnPay(lnPayParams);
+    }
+
+    if (resp.error) {
+      logger.debug("LnurlWithdraw.processLnPayment, ln_pay error!");
+
+      result = { status: "ERROR", reason: resp.error.message };
+
+      lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.error);
+
+      lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+        lnurlWithdrawEntity
+      );
+    } else {
+      logger.debug("LnurlWithdraw.processLnPayment, ln_pay success!");
+
+      result = { status: "OK" };
+
+      lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(resp.result);
+      lnurlWithdrawEntity.withdrawnTs = new Date();
+      lnurlWithdrawEntity.paid = true;
+
+      lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+        lnurlWithdrawEntity
+      );
+
+      this.checkWebhook(lnurlWithdrawEntity);
+    }
+
+    return result;
+  }
+
+  async checkWebhook(lnurlWithdrawEntity: LnurlWithdrawEntity): Promise<void> {
+    if (lnurlWithdrawEntity.webhookUrl) {
+      logger.debug(
+        "LnurlWithdraw.checkWebhook, about to call back the webhookUrl..."
+      );
+
+      this.processCallbacks(lnurlWithdrawEntity);
+    } else {
+      logger.debug("LnurlWithdraw.checkWebhook, skipping, no webhookUrl...");
+    }
+  }
+
+  async processLnStatus(
+    paymentStatus: string,
+    lnurlWithdrawEntity: LnurlWithdrawEntity,
+    bolt11: string,
+    statusResult: unknown
+  ): Promise<IRespLnServiceStatus> {
+    let result: IRespLnServiceStatus;
+
+    if (paymentStatus === "pending") {
+      logger.debug("LnurlWithdraw.lnServiceWithdraw, payment pending...");
+
+      result = {
+        status: "ERROR",
+        reason: "LnurlWithdraw payment pending",
+      };
+    } else if (paymentStatus === "complete") {
+      logger.debug("LnurlWithdraw.lnServiceWithdraw, payment complete...");
+      result = {
+        status: "ERROR",
+        reason: "LnurlWithdraw payment already done",
+      };
+
+      lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(statusResult);
+      // lnurlWithdrawEntity.withdrawnTs = new Date();
+      lnurlWithdrawEntity.paid = true;
+
+      lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+        lnurlWithdrawEntity
+      );
+
+      this.checkWebhook(lnurlWithdrawEntity);
+    } else if (paymentStatus === "failed") {
+      logger.debug("LnurlWithdraw.lnServiceWithdraw, payment failed...");
+
+      if (
+        lnurlWithdrawEntity.expiresAt &&
+        lnurlWithdrawEntity.expiresAt < new Date()
+      ) {
+        logger.debug(
+          "LnurlWithdraw.lnServiceWithdraw, previous pay failed, now expired..."
+        );
+        result = {
+          status: "ERROR",
+          reason: "Expired LNURL-Withdraw",
+        };
+      } else {
+        logger.debug(
+          "LnurlWithdraw.lnServiceWithdraw, previous payment failed but not expired, retry..."
+        );
+
+        result = await this.processLnPayment(lnurlWithdrawEntity, bolt11);
+      }
+    } else {
+      // Error, invalid paymentStatus
+      logger.debug("LnurlWithdraw.lnServiceWithdraw, invalid paymentStatus...");
+      result = {
+        status: "ERROR",
+        reason: "Something unexpected happened",
+      };
+    }
+
+    return result;
+  }
+
   async lnServiceWithdraw(
     params: IReqLnurlWithdraw
   ): Promise<IRespLnServiceStatus> {
@@ -415,9 +549,18 @@ class LnurlWithdraw {
           // Inputs are valid.
           logger.debug("LnurlWithdraw.lnServiceWithdraw, Inputs are valid.");
 
-          let lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawBySecret(
+          const lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawBySecret(
             params.k1
           );
+
+          // If a payment request has already been made, we need to check that payment
+          // status first.
+          // If status is failed, we can accept retrying with supplied bolt11 even if
+          // it is different from the previous one.
+          // If status is complete, we need to update our payment status and tell the
+          // user it's already been paid.
+          // If status is pending, we need to tell the user the payment is pending and
+          // not allow a payment to a different bolt11.
 
           if (lnurlWithdrawEntity == null) {
             logger.debug("LnurlWithdraw.lnServiceWithdraw, invalid k1 value!");
@@ -432,101 +575,138 @@ class LnurlWithdraw {
                 "LnurlWithdraw.lnServiceWithdraw, unpaid lnurlWithdrawEntity found for this k1!"
               );
 
-              // Check expiration
-              if (
-                lnurlWithdrawEntity.expiresAt &&
-                lnurlWithdrawEntity.expiresAt < new Date()
-              ) {
-                // Expired LNURL
-                logger.debug("LnurlWithdraw.lnServiceWithdraw: expired!");
+              if (lnurlWithdrawEntity.bolt11) {
+                // Payment request has been made before, check payment status
+                const resp = await this._cyphernodeClient.lnListPays({
+                  bolt11: lnurlWithdrawEntity.bolt11,
+                } as IReqLnListPays);
 
-                result = { status: "ERROR", reason: "Expired LNURL-Withdraw" };
-              } else {
-                logger.debug("LnurlWithdraw.lnServiceWithdraw: not expired!");
-
-                if (
-                  !lnurlWithdrawEntity.bolt11 ||
-                  lnurlWithdrawEntity.bolt11 === params.pr
-                ) {
+                if (resp.error) {
+                  // Error, should not happen, something's wrong, let's get out of here
                   logger.debug(
-                    "LnurlWithdraw.lnServiceWithdraw: new bolt11 or same as previous!"
+                    "LnurlWithdraw.lnServiceWithdraw, lnListPays errored..."
                   );
-
-                  lnurlWithdrawEntity.bolt11 = params.pr;
-                  const lnPayParams = {
-                    bolt11: params.pr,
-                    expectedMsatoshi: lnurlWithdrawEntity.msatoshi || undefined,
-                    expectedDescription:
-                      lnurlWithdrawEntity.description || undefined,
+                  result = {
+                    status: "ERROR",
+                    reason: "Something unexpected happened",
                   };
-                  let resp: IRespLnPay = await this._cyphernodeClient.lnPay(
-                    lnPayParams
+                } else if (
+                  resp.result &&
+                  resp.result.pays &&
+                  resp.result.pays.length > 0
+                ) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const paymentStatus = (resp.result.pays[0] as any).status;
+                  logger.debug(
+                    "LnurlWithdraw.lnServiceWithdraw, paymentStatus =",
+                    paymentStatus
                   );
 
-                  if (resp.error) {
+                  result = await this.processLnStatus(
+                    paymentStatus,
+                    lnurlWithdrawEntity,
+                    params.pr,
+                    resp.result
+                  );
+                } else {
+                  // Error, should not happen, something's wrong, let's try with paystatus...
+                  logger.debug(
+                    "LnurlWithdraw.lnServiceWithdraw, no previous listpays for this bolt11..."
+                  );
+
+                  const paystatus = await this._cyphernodeClient.lnPayStatus({
+                    bolt11: lnurlWithdrawEntity.bolt11,
+                  } as IReqLnListPays);
+
+                  if (paystatus.error) {
+                    // Error, should not happen, something's wrong, let's get out of here
                     logger.debug(
-                      "LnurlWithdraw.lnServiceWithdraw, ln_pay error, let's retry #1!"
+                      "LnurlWithdraw.lnServiceWithdraw, lnPayStatus errored..."
                     );
-
-                    resp = await this._cyphernodeClient.lnPay(lnPayParams);
-                  }
-
-                  if (resp.error) {
+                    result = {
+                      status: "ERROR",
+                      reason: "Something unexpected happened",
+                    };
+                  } else if (paystatus.result) {
                     logger.debug(
-                      "LnurlWithdraw.lnServiceWithdraw, ln_pay error, let's retry #2!"
+                      "LnurlWithdraw.lnServiceWithdraw, lnPayStatus success..."
                     );
 
-                    resp = await this._cyphernodeClient.lnPay(lnPayParams);
-                  }
+                    // We parse paystatus result
+                    // pay[] is an array of payments
+                    // attempts[] is an array of attempts for each payment
+                    // As soon as there's a "success" field in attemps, payment succeeded!
+                    // If the last attempt doesn't have a "failure" field, it means there's a pending attempt
+                    // If the last attempt has a "failure" field, it means payment failed.
+                    let success = false;
+                    let failure = null;
+                    paystatus.result.pay.forEach((pay) => {
+                      pay.attempts.forEach((attempt) => {
+                        if (attempt.success) {
+                          success = true;
+                          return;
+                        } else if (attempt.failure) {
+                          failure = true;
+                        } else {
+                          failure = false;
+                        }
+                      });
+                    });
 
-                  if (resp.error) {
+                    let paymentStatus;
+                    if (success) {
+                      paymentStatus = "complete";
+                    } else if (failure === false) {
+                      paymentStatus = "pending";
+                    } else {
+                      paymentStatus = "failed";
+                    }
+
                     logger.debug(
-                      "LnurlWithdraw.lnServiceWithdraw, ln_pay error!"
+                      "LnurlWithdraw.lnServiceWithdraw, paymentStatus =",
+                      paymentStatus
                     );
 
-                    result = { status: "ERROR", reason: resp.error.message };
-
-                    lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
-                      resp.error
-                    );
-
-                    lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-                      lnurlWithdrawEntity
+                    result = await this.processLnStatus(
+                      paymentStatus,
+                      lnurlWithdrawEntity,
+                      params.pr,
+                      paystatus.result
                     );
                   } else {
+                    // Error, should not happen, something's wrong, let's get out of here
                     logger.debug(
-                      "LnurlWithdraw.lnServiceWithdraw, ln_pay success!"
+                      "LnurlWithdraw.lnServiceWithdraw, lnPayStatus errored..."
                     );
-
-                    result = { status: "OK" };
-
-                    lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
-                      resp.result
-                    );
-                    lnurlWithdrawEntity.withdrawnTs = new Date();
-                    lnurlWithdrawEntity.paid = true;
-
-                    lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-                      lnurlWithdrawEntity
-                    );
-
-                    if (lnurlWithdrawEntity.webhookUrl) {
-                      logger.debug(
-                        "LnurlWithdraw.lnServiceWithdraw, about to call back the webhookUrl..."
-                      );
-
-                      this.processCallbacks(lnurlWithdrawEntity);
-                    }
+                    result = {
+                      status: "ERROR",
+                      reason: "Something unexpected happened",
+                    };
                   }
-                } else {
-                  logger.debug(
-                    "LnurlWithdraw.lnServiceWithdraw, trying to redeem twice with different bolt11!"
-                  );
+                }
+              } else {
+                // Not previously claimed LNURL
+                logger.debug(
+                  "LnurlWithdraw.lnServiceWithdraw, Not previously claimed LNURL..."
+                );
+
+                // Check expiration
+                if (
+                  lnurlWithdrawEntity.expiresAt &&
+                  lnurlWithdrawEntity.expiresAt < new Date()
+                ) {
+                  // Expired LNURL
+                  logger.debug("LnurlWithdraw.lnServiceWithdraw: expired!");
 
                   result = {
                     status: "ERROR",
-                    reason: "Trying to redeem twice with different bolt11",
+                    reason: "Expired LNURL-Withdraw",
                   };
+                } else {
+                  result = await this.processLnPayment(
+                    lnurlWithdrawEntity,
+                    params.pr
+                  );
                 }
               }
             } else {
@@ -561,6 +741,7 @@ class LnurlWithdraw {
         return result;
       }
     );
+
     logger.debug(
       "released lock modifLnurlWithdraw in LN Service LNURL Withdraw"
     );

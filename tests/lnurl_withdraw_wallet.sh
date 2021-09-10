@@ -9,25 +9,60 @@ trace() {
   fi
 }
 
+create_lnurl_withdraw() {
+  trace 2 "\n\n[create_lnurl_withdraw] ${BCyan}Service creates LNURL Withdraw...${Color_Off}\n"
+
+  local callbackurl=${1}
+  trace 3 "[create_lnurl_withdraw] callbackurl=${callbackurl}"
+
+  local invoicenumber=${3:-$RANDOM}
+  trace 3 "[create_lnurl_withdraw] invoicenumber=${invoicenumber}"
+  local msatoshi=$((500000+${invoicenumber}))
+  trace 3 "[create_lnurl_withdraw] msatoshi=${msatoshi}"
+  local expiration_offset=${2:-0}
+  local expiration=$(date -d @$(($(date -u +"%s")+${expiration_offset})) +"%Y-%m-%dT%H:%M:%SZ")
+  trace 3 "[create_lnurl_withdraw] expiration=${expiration}"
+  local fallback_addr=${4:-""}
+  local fallback_batched=${5:-"false"}
+
+  if [ -n "${callbackurl}" ]; then
+    callbackurl=',"webhookUrl":"'${callbackurl}'/lnurl/inv'${invoicenumber}'"'
+  fi
+
+  # Service creates LNURL Withdraw
+  data='{"id":0,"method":"createLnurlWithdraw","params":{"msatoshi":'${msatoshi}',"description":"desc'${invoicenumber}'","expiresAt":"'${expiration}'"'${callbackurl}',"btcFallbackAddress":"'${fallback_addr}'","batchFallback":'${fallback_batched}'}}'
+  trace 3 "[create_lnurl_withdraw] data=${data}"
+  trace 3 "[create_lnurl_withdraw] Calling createLnurlWithdraw..."
+  local createLnurlWithdraw=$(curl -sd "${data}" -H "Content-Type: application/json" lnurl:8000/api)
+  trace 3 "[create_lnurl_withdraw] createLnurlWithdraw=${createLnurlWithdraw}"
+
+  # {"id":0,"result":{"msatoshi":100000000,"description":"desc01","expiresAt":"2021-07-15T12:12:23.112Z","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
+  local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
+  trace 3 "[create_lnurl_withdraw] lnurl=${lnurl}"
+
+  echo "${createLnurlWithdraw}"
+}
+
 decode_lnurl() {
-  trace 1 "\n[decode_lnurl] ${BCyan}Decoding LNURL...${Color_Off}"
+  trace 2 "\n\n[decode_lnurl] ${BCyan}Decoding LNURL...${Color_Off}\n"
 
   local lnurl=${1}
-  trace 2 "[decode_lnurl] lnurl=${lnurl}"
 
   local data='{"id":0,"method":"decodeBech32","params":{"s":"'${lnurl}'"}}'
-  trace 2 "[decode_lnurl] data=${data}"
+  trace 3 "[decode_lnurl] data=${data}"
   local decodedLnurl=$(curl -sd "${data}" -H "Content-Type: application/json" lnurl:8000/api)
-  trace 2 "[decode_lnurl] decodedLnurl=${decodedLnurl}"
+  trace 3 "[decode_lnurl] decodedLnurl=${decodedLnurl}"
+  local url=$(echo "${decodedLnurl}" | jq -r ".result")
+  trace 3 "[decode_lnurl] url=${url}"
 
-  echo "${decodedLnurl}"
+  echo "${url}"
 }
 
 call_lnservice_withdraw_request() {
   trace 1 "\n[call_lnservice_withdraw_request] ${BCyan}User calls LN Service LNURL Withdraw Request...${Color_Off}"
 
   local url=${1}
-  trace 2 "[decode_lnurl] url=${url}"
+  trace 2 "[call_lnservice_withdraw_request] url=${url}"
 
   local withdrawRequestResponse=$(curl -s ${url})
   trace 2 "[call_lnservice_withdraw_request] withdrawRequestResponse=${withdrawRequestResponse}"
@@ -92,7 +127,7 @@ call_lnservice_withdraw() {
   echo "${withdrawResponse}"
 }
 
-TRACING=2
+TRACING=3
 
 trace 2 "${Color_Off}"
 date
@@ -103,22 +138,56 @@ apk add curl jq
 
 lnurl=${1}
 trace 2 "lnurl=${lnurl}"
+bolt11=${2}
+trace 2 "bolt11=${bolt11}"
 
-decoded_lnurl=$(decode_lnurl "${lnurl}")
-trace 2 "decoded_lnurl=${decoded_lnurl}"
-url=$(echo "${decoded_lnurl}" | jq -r ".result")
-trace 2 "url=${url}"
+if [ "${lnurl}" = "createlnurl" ]; then
+  # Initializing test variables
+  trace 2 "\n\n${BCyan}Initializing test variables...${Color_Off}\n"
+  # callbackservername="lnurl_withdraw_test"
+  # callbackserverport="1111"
+  # callbackurl="http://${callbackservername}:${callbackserverport}"
+  trace 3 "callbackurl=${callbackurl}"
 
-withdrawRequestResponse=$(call_lnservice_withdraw_request "${url}")
-trace 2 "withdrawRequestResponse=${withdrawRequestResponse}"
-msatoshi=$(echo "${withdrawRequestResponse}" | jq -r ".maxWithdrawable")
-trace 2 "msatoshi=${msatoshi}"
-desc=$(echo "${withdrawRequestResponse}" | jq -r ".defaultDescription")
-trace 2 "desc=${desc}"
+  createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 600)
+  trace 3 "[fallback3] createLnurlWithdraw=${createLnurlWithdraw}"
+  lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
+  trace 3 "[fallback3] lnurl=${lnurl}"
+else
+  url=$(decode_lnurl "${lnurl}")
+  trace 2 "url=${url}"
 
-invoice=$(create_bolt11 ${msatoshi} "$RANDOM" "${desc}")
-trace 2 "invoice=${invoice}"
-bolt11=$(echo "${invoice}" | jq -r ".bolt11")
+  withdrawRequestResponse=$(call_lnservice_withdraw_request "${url}")
+  trace 2 "withdrawRequestResponse=${withdrawRequestResponse}"
 
-withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
-trace 2 "withdrawResponse=${withdrawResponse}"
+  # {"status":"ERROR","reason":"Expired LNURL-Withdraw"}
+  reason=$(echo "${withdrawRequestResponse}" | jq -r ".reason // empty")
+
+  if [ -n "${reason}" ]; then
+    trace 1 "\n\nERROR!  Reason: ${reason}\n\n"
+    return 1
+  fi
+
+  msatoshi=$(echo "${withdrawRequestResponse}" | jq -r ".maxWithdrawable")
+  trace 2 "msatoshi=${msatoshi}"
+  desc=$(echo "${withdrawRequestResponse}" | jq -r ".defaultDescription")
+  trace 2 "desc=${desc}"
+
+  if [ -z "${bolt11}" ]; then
+    invoice=$(create_bolt11 ${msatoshi} "$RANDOM" "${desc}")
+    trace 2 "invoice=${invoice}"
+    bolt11=$(echo "${invoice}" | jq -r ".bolt11")
+
+    trace 2 "bolt11=${bolt11}"
+  fi
+
+  withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
+  trace 2 "withdrawResponse=${withdrawResponse}"
+
+  reason=$(echo "${withdrawResponse}" | jq -r ".reason // empty")
+
+  if [ -n "${reason}" ]; then
+    trace 1 "\n\nERROR!  Reason: ${reason}\n\n"
+    return 1
+  fi
+fi

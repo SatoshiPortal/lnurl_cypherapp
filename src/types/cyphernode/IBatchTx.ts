@@ -8,5 +8,5 @@ export default interface IBatchTx {
     replaceable: boolean;
     fee: number;
   };
-  outputs?: [];
+  outputs?: unknown[];
 }

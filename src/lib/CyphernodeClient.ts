@@ -16,6 +16,9 @@ import IReqSpend from "../types/cyphernode/IReqSpend";
 import IRespSpend from "../types/cyphernode/IRespSpend";
 import IReqLnPay from "../types/cyphernode/IReqLnPay";
 import IRespLnPay from "../types/cyphernode/IRespLnPay";
+import IRespLnListPays from "../types/cyphernode/IRespLnListPays";
+import IReqLnListPays from "../types/cyphernode/IReqLnListPays";
+import IRespLnPayStatus from "../types/cyphernode/IRespLnPayStatus";
 
 class CyphernodeClient {
   private baseURL: string;
@@ -519,6 +522,223 @@ class CyphernodeClient {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as IResponseError<any>,
       } as IRespLnPay;
+    }
+    return result;
+  }
+
+  async lnListPays(lnListPaysTO: IReqLnListPays): Promise<IRespLnListPays> {
+    // POST http://192.168.111.152:8080/ln_listpays
+    // BODY {"bolt11":"lntb1pdca82tpp5g[...]9wafq9n4w28amnmwzujgqpmapcr3"}
+    //
+    // args:
+    // - bolt11, optional, lightning network bolt11 invoice
+    //
+    //  Example of error result:
+    //
+    // {
+    //   "code": -32602,
+    //   "message": "Invalid invstring: invalid bech32 string"
+    // }
+    //
+    //
+    //  Example of successful result when a bolt11 is supplied:
+    //
+    // {
+    //   "pays": [
+    //     {
+    //     "bolt11": "lnbcrt10m1psv5fu0pp5x239mf9m5p6grz4muzv202pdye3atrzp9nzm7nqjt5vfz4mp2vqqdqdv3ekxvfnxy6njxqzuycqp2sp5f9rhgvpy7j5l3ka2yhxazd2kf8mx4h7sjcwncfy3s7vrq7wt2v6q9qy9qsqngws5fwc56uagscw8pqwupt7hqkrj7nl60x9yv3c4gp3xl8tpd6hzp8f4rtk3k7r2c30sgwjyedtq5xxqvqnljt3ymz5thlrw367ccsparekqw",
+    //     "destination": "029b26c73b2c19ec9bdddeeec97c313670c96b6414ceacae0fb1b3502e490a6cbb",
+    //     "payment_hash": "32a25da4bba074818abbe098a7a82d2663d58c412cc5bf4c125d189157615300",
+    //     "status": "complete",
+    //     "created_at": 1623861137,
+    //     "preimage": "6a2b15478bd661cac9ed03b808b3f21e27ed0a2abe392e953dfc3f801a9d1829",
+    //     "amount_msat": "1000000000msat",
+    //     "amount_sent_msat": "1000000000msat"
+    //     }
+    //   ]
+    // }
+    //
+    //
+    //  Example of successful result when a non-existing bolt11 is supplied or none supplied but empty list:
+    //
+    // {
+    //   "pays": [
+    //   ]
+    // }
+    //
+    //
+    //  Example of successful result when no bolt11 is supplied (lists all):
+    //
+    // {
+    //   "pays": [
+    //     {
+    //     "bolt11": "lnbcrt174410p1ps07kf8pp500w6fzdfgzse5wf59l36ktqhtqzmzla7ypa2uagx796nlzlzm8jqdqdv3jhxcehxs6rzxqyjw5qcqp2sp5rkknr49qf3empm9shcvayvtcwuv2pkfz04yf38rxpnacnvx382ms9qy9qsqlfqvztg2hlrzu0vad5gwhmh8rnd6t2ph27shq7gm36y24mce9k6n45cq4kmexkandrg5463luw4rduj3uu4cy9qxrnmukn8g29azhaqprngzww",
+    //     "destination": "029b26c73b2c19ec9bdddeeec97c313670c96b6414ceacae0fb1b3502e490a6cbb",
+    //     "payment_hash": "7bdda489a940a19a39342fe3ab2c175805b17fbe207aae7506f1753f8be2d9e4",
+    //     "status": "complete",
+    //     "created_at": 1627347240,
+    //     "preimage": "8ba5bfd92f363656633232b94c25551b236b0a4cf343503bf705a2d4951c8ac8",
+    //     "amount_msat": "17441msat",
+    //     "amount_sent_msat": "17441msat"
+    //     },
+    //     ...
+    //     {
+    //     "bolt11": "lnbcrt10m1psv5fu0pp5x239mf9m5p6grz4muzv202pdye3atrzp9nzm7nqjt5vfz4mp2vqqdqdv3ekxvfnxy6njxqzuycqp2sp5f9rhgvpy7j5l3ka2yhxazd2kf8mx4h7sjcwncfy3s7vrq7wt2v6q9qy9qsqngws5fwc56uagscw8pqwupt7hqkrj7nl60x9yv3c4gp3xl8tpd6hzp8f4rtk3k7r2c30sgwjyedtq5xxqvqnljt3ymz5thlrw367ccsparekqw",
+    //     "destination": "029b26c73b2c19ec9bdddeeec97c313670c96b6414ceacae0fb1b3502e490a6cbb",
+    //     "payment_hash": "32a25da4bba074818abbe098a7a82d2663d58c412cc5bf4c125d189157615300",
+    //     "status": "complete",
+    //     "created_at": 1623861137,
+    //     "preimage": "6a2b15478bd661cac9ed03b808b3f21e27ed0a2abe392e953dfc3f801a9d1829",
+    //     "amount_msat": "1000000000msat",
+    //     "amount_sent_msat": "1000000000msat"
+    //     }
+    //   ]
+    // }
+    //
+
+    logger.info("CyphernodeClient.lnListPays:", lnListPaysTO);
+
+    let result: IRespLnListPays;
+    const response = await this._post("/ln_listpays", lnListPaysTO);
+    if (response.status >= 200 && response.status < 400) {
+      result = { result: response.data };
+    } else {
+      result = {
+        error: {
+          code: ErrorCodes.InternalError,
+          message: response.data.message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as IResponseError<any>,
+      } as IRespLnListPays;
+    }
+    return result;
+  }
+
+  async lnPayStatus(lnPayStatusTO: IReqLnListPays): Promise<IRespLnPayStatus> {
+    // POST http://192.168.111.152:8080/ln_listpays
+    // BODY {"bolt11":"lntb1pdca82tpp5g[...]9wafq9n4w28amnmwzujgqpmapcr3"}
+    //
+    // args:
+    // - bolt11, optional, lightning network bolt11 invoice
+    //
+    //  Example of error result:
+    //
+    // {
+    //    "pay": []
+    // }
+    //
+    //
+    //  Example of successful result when a bolt11 is supplied:
+    //
+    //  {
+    //     "pay": [
+    //        {
+    //           "bolt11": "lnbcrt123450p1psn5ud2pp5q4rfk3qgxcejp30uqrakauva03e28xrjxy48cpha8ngceyk62pxqdq9vscrjxqyjw5qcqp2sp5cen5rxu72vcktz7mu3uaq84gqulcc0a5yvekmdfady8v5dr5xkjq9qyyssqs7ff458qr6atp2k8lj0t5l8n722mtv3qnetrclzep33mdp48smgrl4phqz89wq07wmhlug5ezztr2yxh8uzwpda5pzfsdtvz3d5qdvgpt56wqt",
+    //           "amount_msat": "12345msat",
+    //           "amount_msat": "12345msat",
+    //           "destination": "029b26c73b2c19ec9bdddeeec97c313670c96b6414ceacae0fb1b3502e490a6cbb",
+    //           "attempts": [
+    //              {
+    //                 "strategy": "Initial attempt",
+    //                 "start_time": "2021-09-09T20:42:54.779Z",
+    //                 "age_in_seconds": 652,
+    //                 "end_time": "2021-09-09T20:42:54.826Z",
+    //                 "state": "completed",
+    //                 "failure": {
+    //                    "code": 205,
+    //                    "message": "Call to getroute: Could not find a route"
+    //                 }
+    //              }
+    //           ]
+    //        },
+    //        {
+    //           "bolt11": "lnbcrt123450p1psn5ud2pp5q4rfk3qgxcejp30uqrakauva03e28xrjxy48cpha8ngceyk62pxqdq9vscrjxqyjw5qcqp2sp5cen5rxu72vcktz7mu3uaq84gqulcc0a5yvekmdfady8v5dr5xkjq9qyyssqs7ff458qr6atp2k8lj0t5l8n722mtv3qnetrclzep33mdp48smgrl4phqz89wq07wmhlug5ezztr2yxh8uzwpda5pzfsdtvz3d5qdvgpt56wqt",
+    //           "amount_msat": "12345msat",
+    //           "amount_msat": "12345msat",
+    //           "destination": "029b26c73b2c19ec9bdddeeec97c313670c96b6414ceacae0fb1b3502e490a6cbb",
+    //           "attempts": [
+    //              {
+    //                 "strategy": "Initial attempt",
+    //                 "start_time": "2021-09-09T20:53:37.384Z",
+    //                 "age_in_seconds": 9,
+    //                 "end_time": "2021-09-09T20:53:37.719Z",
+    //                 "state": "completed",
+    //                 "success": {
+    //                    "id": 225,
+    //                    "payment_preimage": "0fe69b61ee05fa966b612a9398057730f69459a8a7cf5a1f518203be92ce962e"
+    //                 }
+    //              }
+    //           ]
+    //        }
+    //     ]
+    //  }
+    //
+    //
+    //
+    //  Example of successful result when no bolt11 is supplied (lists all):
+    //
+    // {
+    //    "pay": [
+    //       {
+    //          "bolt11": "lnbcrt5190610p1psn5urqpp5l5mxhx8u0wfck2ha96ke0hvqn22rlp34zkqfllysmj0m3unctsgqdq0v3jhxce38ycrvvgxqyjw5qcqp2sp5rcqxz7qpnckvjkpfacc5er8vl4s2es6ved4zqsge4zaxgkww72ls9qyyssq7yr4ulda5xl3t5hc3u7rykq64nfh7v66zehtl37cn7ehepzlg2fqwy2px5msqtpf96caqrhmtcclk6j4qu6pe5r0rayvqmw3wxcl7pgpk20fsl",
+    //          "msatoshi": 519061,
+    //          "amount_msat": "519061msat",
+    //          "destination": "029b26c73b2c19ec9bdddeeec97c313670c96b6414ceacae0fb1b3502e490a6cbb",
+    //          "local_exclusions": "Excluded channel 294x1x0/1 (3881837942msat, disconnected). ",
+    //          "attempts": [
+    //             {
+    //                "strategy": "Initial attempt",
+    //                "start_time": "2021-09-09T20:36:48.925Z",
+    //                "age_in_seconds": 2968,
+    //                "end_time": "2021-09-09T20:36:48.927Z",
+    //                "duration_in_seconds": 0,
+    //                "excluded_nodes_or_channels": [
+    //                   "294x1x0/1"
+    //                ],
+    //                "failure": {
+    //                   "code": 205,
+    //                   "message": "Call to getroute: Could not find a route"
+    //                }
+    //             }
+    //          ]
+    //       },
+    //       ...
+    //       {
+    //          "bolt11": "lnbcrt123450p1psn5ud2pp5q4rfk3qgxcejp30uqrakauva03e28xrjxy48cpha8ngceyk62pxqdq9vscrjxqyjw5qcqp2sp5cen5rxu72vcktz7mu3uaq84gqulcc0a5yvekmdfady8v5dr5xkjq9qyyssqs7ff458qr6atp2k8lj0t5l8n722mtv3qnetrclzep33mdp48smgrl4phqz89wq07wmhlug5ezztr2yxh8uzwpda5pzfsdtvz3d5qdvgpt56wqt",
+    //          "amount_msat": "12345msat",
+    //          "amount_msat": "12345msat",
+    //          "destination": "029b26c73b2c19ec9bdddeeec97c313670c96b6414ceacae0fb1b3502e490a6cbb",
+    //          "attempts": [
+    //             {
+    //                "strategy": "Initial attempt",
+    //                "start_time": "2021-09-09T20:53:37.384Z",
+    //                "age_in_seconds": 1960,
+    //                "end_time": "2021-09-09T20:53:37.719Z",
+    //                "state": "completed",
+    //                "success": {
+    //                   "id": 225,
+    //                   "payment_preimage": "0fe69b61ee05fa966b612a9398057730f69459a8a7cf5a1f518203be92ce962e"
+    //                }
+    //             }
+    //          ]
+    //       }
+    //    ]
+    // }
+
+    logger.info("CyphernodeClient.lnPayStatus:", lnPayStatusTO);
+
+    let result: IRespLnPayStatus;
+    const response = await this._post("/ln_paystatus", lnPayStatusTO);
+    if (response.status >= 200 && response.status < 400) {
+      result = { result: response.data };
+    } else {
+      result = {
+        error: {
+          code: ErrorCodes.InternalError,
+          message: response.data.message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as IResponseError<any>,
+      } as IRespLnPayStatus;
     }
     return result;
   }
