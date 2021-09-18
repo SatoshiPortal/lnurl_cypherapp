@@ -231,7 +231,7 @@ call_lnservice_withdraw() {
   local bolt11=${2}
   trace 2 "[call_lnservice_withdraw] bolt11=${bolt11}"
 
-  callback=$(echo "${withdrawRequestResponse}" | jq -r ".callback")
+  local callback=$(echo "${withdrawRequestResponse}" | jq -r ".callback")
   trace 2 "[call_lnservice_withdraw] callback=${callback}"
   k1=$(echo "${withdrawRequestResponse}" | jq -r ".k1")
   trace 2 "[call_lnservice_withdraw] k1=${k1}"

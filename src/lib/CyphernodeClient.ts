@@ -217,7 +217,7 @@ class CyphernodeClient {
     // - webhookUrl, optional, the webhook to call when the batch is broadcast
 
     // response:
-    // - lnurlId, the id of the lnurl
+    // - batcherId, the id of the batcher
     // - outputId, the id of the added output
     // - nbOutputs, the number of outputs currently in the batch
     // - oldest, the timestamp of the oldest output in the batch
@@ -254,7 +254,7 @@ class CyphernodeClient {
     // - outputId, required, id of the output to remove
     //
     // response:
-    // - lnurlId, the id of the lnurl
+    // - batcherId, the id of the batcher
     // - outputId, the id of the removed output if found
     // - nbOutputs, the number of outputs currently in the batch
     // - oldest, the timestamp of the oldest output in the batch
@@ -289,15 +289,15 @@ class CyphernodeClient {
     // POST (GET) http://192.168.111.152:8080/getbatchdetails
     //
     // args:
-    // - lnurlId, optional, id of the lnurl, overrides lnurlLabel, default lnurl will be spent if not supplied
-    // - lnurlLabel, optional, label of the lnurl, default lnurl will be used if not supplied
+    // - batcherId, optional, id of the batcher, overrides batcherLabel, default batcher will be spent if not supplied
+    // - batcherLabel, optional, label of the batcher, default batcher will be used if not supplied
     // - txid, optional, if you want the details of an executed batch, supply the batch txid, will return current pending batch
     //     if not supplied
     //
     // response:
     // {"result":{
-    //    "lnurlId":34,
-    //    "lnurlLabel":"Special lnurl for a special client",
+    //    "batcherId":34,
+    //    "batcherLabel":"Special batcher for a special client",
     //    "confTarget":6,
     //    "nbOutputs":83,
     //    "oldest":123123,
@@ -321,7 +321,7 @@ class CyphernodeClient {
     // },"error":null}
     //
     // BODY {}
-    // BODY {"lnurlId":34}
+    // BODY {"batcherId":34}
 
     logger.info("CyphernodeClient.getBatchDetails:", batchIdent);
 
@@ -346,10 +346,10 @@ class CyphernodeClient {
     // POST http://192.168.111.152:8080/batchspend
     //
     // args:
-    // - lnurlId, optional, id of the lnurl to execute, overrides lnurlLabel, default lnurl will be spent if not supplied
-    // - lnurlLabel, optional, label of the lnurl to execute, default lnurl will be executed if not supplied
-    // - confTarget, optional, overrides default value of createlnurl, default to value of createlnurl, default Bitcoin Core conf_target will be used if not supplied
-    // NOTYET - feeRate, optional, overrides confTarget if supplied, overrides default value of createlnurl, default to value of createlnurl, default Bitcoin Core value will be used if not supplied
+    // - batcherId, optional, id of the batcher to execute, overrides batcherLabel, default batcher will be spent if not supplied
+    // - batcherLabel, optional, label of the batcher to execute, default batcher will be executed if not supplied
+    // - confTarget, optional, overrides default value of createbatcher, default to value of createbatcher, default Bitcoin Core conf_target will be used if not supplied
+    // NOTYET - feeRate, optional, overrides confTarget if supplied, overrides default value of createbatcher, default to value of createbatcher, default Bitcoin Core value will be used if not supplied
     //
     // response:
     // - txid, the transaction txid
@@ -361,8 +361,8 @@ class CyphernodeClient {
     // - outputs
     //
     // {"result":{
-    //    "lnurlId":34,
-    //    "lnurlLabel":"Special lnurl for a special client",
+    //    "batcherId":34,
+    //    "batcherLabel":"Special batcher for a special client",
     //    "confTarget":6,
     //    "nbOutputs":83,
     //    "oldest":123123,
@@ -386,9 +386,9 @@ class CyphernodeClient {
     // },"error":null}
     //
     // BODY {}
-    // BODY {"lnurlId":34,"confTarget":12}
-    // NOTYET BODY {"lnurlLabel":"highfees","feeRate":233.7}
-    // BODY {"lnurlId":411,"confTarget":6}
+    // BODY {"batcherId":34,"confTarget":12}
+    // NOTYET BODY {"batcherLabel":"highfees","feeRate":233.7}
+    // BODY {"batcherId":411,"confTarget":6}
 
     logger.info("CyphernodeClient.batchSpend:", batchSpendTO);
 
