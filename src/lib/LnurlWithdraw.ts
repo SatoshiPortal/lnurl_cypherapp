@@ -908,13 +908,16 @@ class LnurlWithdraw {
                 paymentStatus.result
               );
               // lnurlWithdrawEntity.withdrawnTs = new Date();
-              lnurlWithdrawEntity.paid = true;
+              lnurlWithdrawEntity.paid =
+                paymentStatus.paymentStatus === "complete";
 
               lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
                 lnurlWithdrawEntity
               );
 
-              this.checkWebhook(lnurlWithdrawEntity);
+              if (paymentStatus.paymentStatus === "complete") {
+                this.checkWebhook(lnurlWithdrawEntity);
+              }
             }
           }
 
