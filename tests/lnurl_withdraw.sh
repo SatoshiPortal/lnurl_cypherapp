@@ -62,7 +62,29 @@
 # 8. Wait for the batch to execute, LNURL callback called (port 1111), Cyphernode's watch callback called (port 1112), Batcher's execute callback called (port 1113)
 # 9. Mined block and Cyphernode's confirmed watch callback called (port 1114)
 
-# 
+# fallback 3, force fallback
+
+# 1. Cyphernode.getnewaddress -> btcfallbackaddr
+# 2. Cyphernode.watch btcfallbackaddr
+# 3. Listen to watch webhook
+# 4. Create a LNURL Withdraw with expiration=tomorrow and a btcfallbackaddr
+# 5. Get it and compare
+# 6. User calls LNServiceWithdrawRequest -> works, not expired!
+# 7. Call forceFallback
+# 7. Fallback should be triggered, LNURL callback called (port 1111), Cyphernode's watch callback called (port 1112)
+# 8. Mined block and Cyphernode's confirmed watch callback called (port 1113)
+
+# fallback 4, execute fallback on a bolt11 paid in background (lnurl app doesn't know it's been paid)
+
+# 1. Cyphernode.getnewaddress -> btcfallbackaddr
+# 2. Create a LNURL Withdraw with expiration=tomorrow and a btcfallbackaddr
+# 3. Get it and compare
+# 4. User calls LNServiceWithdrawRequest -> works, not expired!
+# 5. Shut down LN02
+# 6. User calls LNServiceWithdraw -> fails because LN02 is down
+# 7. Call ln_pay directly on Cyphernode so that LNURLapp doesn't know about it
+# 8. Call forceFallback -> should check payment status and say it's already paid!
+
 
 . ./tests/colors.sh
 
@@ -71,6 +93,38 @@ trace() {
     local str="$(date -Is) $$ ${2}"
     echo -e "${str}" >&2
   fi
+}
+
+ln_reconnect() {
+  trace 2 "\n\n[ln_reconnect] ${BCyan}Reconnecting the two LN instances...${Color_Off}\n"
+
+  (while true ; do ping -c 1 cyphernode_lightning ; [ "$?" -eq "0" ] && break ; sleep 5; done) &
+  (while true ; do ping -c 1 cyphernode_lightning2 ; [ "$?" -eq "0" ] && break ; sleep 5; done) &
+  wait
+
+  local data='{"id":1,"jsonrpc":"2.0","method":"getinfo"}'
+  trace 3 "[ln_reconnect] data=${data}"
+  local getinfo1=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet:9737/rpc)
+  trace 3 "[ln_reconnect] getinfo1=${getinfo1}"
+  local id1=$(echo "${getinfo1}" | jq -r ".id")
+  trace 3 "[ln_reconnect] id1=${id1}"
+
+  data='{"id":1,"jsonrpc":"2.0","method":"getinfo"}'
+  trace 3 "[ln_reconnect] data=${data}"
+  local getinfo2=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
+  trace 3 "[ln_reconnect] getinfo2=${getinfo2}"
+  local id2=$(echo "${getinfo2}" | jq -r ".id")
+  trace 3 "[ln_reconnect] id2=${id2}"
+
+  data='{"id":1,"jsonrpc":"2.0","method":"connect","params":{"id":"'${id2}'@lightning2"}}'
+  trace 3 "[ln_reconnect] data=${data}"
+  local connect=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet:9737/rpc)
+  trace 3 "[create_bolt11] connect=${connect}"
+
+  data='{"id":1,"jsonrpc":"2.0","method":"connect","params":{"id":"'${id1}'@lightning"}}'
+  trace 3 "[ln_reconnect] data=${data}"
+  local connect2=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
+  trace 3 "[create_bolt11] connect2=${connect2}"
 }
 
 create_lnurl_withdraw() {
@@ -197,7 +251,7 @@ create_bolt11() {
   local desc=${2}
   trace 3 "[create_bolt11] desc=${desc}"
 
-  local data='{"id":1,"jsonrpc": "2.0","method":"invoice","params":{"msatoshi":'${msatoshi}',"label":"'${desc}'","description":"'${desc}'"}}'
+  local data='{"id":1,"jsonrpc":"2.0","method":"invoice","params":{"msatoshi":'${msatoshi}',"label":"'${desc}'","description":"'${desc}'"}}'
   trace 3 "[create_bolt11] data=${data}"
   local invoice=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
   trace 3 "[create_bolt11] invoice=${invoice}"
@@ -213,7 +267,7 @@ get_invoice_status() {
 
   local payment_hash=$(echo "${invoice}" | jq -r ".payment_hash")
   trace 3 "[get_invoice_status] payment_hash=${payment_hash}"
-  local data='{"id":1,"jsonrpc": "2.0","method":"listinvoices","params":{"payment_hash":"'${payment_hash}'"}}'
+  local data='{"id":1,"jsonrpc":"2.0","method":"listinvoices","params":{"payment_hash":"'${payment_hash}'"}}'
   trace 3 "[get_invoice_status] data=${data}"
   local invoices=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
   trace 3 "[get_invoice_status] invoices=${invoices}"
@@ -822,6 +876,113 @@ fallback3() {
   trace 1 "\n\n[fallback3] ${On_IGreen}${BBlack} Fallback 3: SUCCESS!                                                                       ${Color_Off}\n"
 }
 
+fallback4() {
+  # 1. Cyphernode.getnewaddress -> btcfallbackaddr
+  # 2. Create a LNURL Withdraw with expiration=tomorrow and a btcfallbackaddr
+  # 3. Get it and compare
+  # 4. User calls LNServiceWithdrawRequest -> works, not expired!
+  # 5. Shut down LN02
+  # 6. User calls LNServiceWithdraw -> fails because LN02 is down
+  # 7. Call ln_pay directly on Cyphernode so that LNURLapp doesn't know about it
+  # 8. Call forceFallback -> should check payment status and say it's already paid!
+
+  trace 1 "\n\n[fallback4] ${On_Yellow}${BBlack} Fallback 4:                                                                        ${Color_Off}\n"
+
+  local callbackurl="http://${callbackservername}:${callbackserverport}"
+
+  # Get new address
+  local data='{"label":"lnurl_fallback_test"}'
+  local btcfallbackaddr=$(curl -sd "${data}" -H "Content-Type: application/json" proxy:8888/getnewaddress)
+  btcfallbackaddr=$(echo "${btcfallbackaddr}" | jq -r ".address")
+  trace 3 "[fallback4] btcfallbackaddr=${btcfallbackaddr}"
+
+  # Service creates LNURL Withdraw
+  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 86400 "" "${btcfallbackaddr}")
+  trace 3 "[fallback4] createLnurlWithdraw=${createLnurlWithdraw}"
+  local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
+  trace 3 "[fallback4] lnurl=${lnurl}"
+
+  local lnurl_withdraw_id=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurlWithdrawId")
+  local get_lnurl_withdraw=$(get_lnurl_withdraw ${lnurl_withdraw_id})
+  trace 3 "[fallback4] get_lnurl_withdraw=${get_lnurl_withdraw}"
+  local equals=$(jq --argjson a "${createLnurlWithdraw}" --argjson b "${get_lnurl_withdraw}" -n '$a == $b')
+  trace 3 "[fallback4] equals=${equals}"
+  if [ "${equals}" = "true" ]; then
+    trace 2 "[fallback4] EQUALS!"
+  else
+    trace 1 "\n\n[fallback4] ${On_Red}${BBlack} Fallback 3: NOT EQUALS!                                                                          ${Color_Off}\n"
+    return 1
+  fi
+
+  # Decode LNURL
+  local serviceUrl=$(decode_lnurl "${lnurl}")
+  trace 3 "[fallback4] serviceUrl=${serviceUrl}"
+
+  # User calls LN Service LNURL Withdraw Request
+  local withdrawRequestResponse=$(call_lnservice_withdraw_request "${serviceUrl}")
+  trace 3 "[fallback4] withdrawRequestResponse=${withdrawRequestResponse}"
+
+  echo "${withdrawRequestResponse}" | grep -qi "expired"
+  if [ "$?" -eq "0" ]; then
+    trace 1 "\n\n[fallback4] ${On_Red}${BBlack} Fallback 3: EXPIRED!                                                                         ${Color_Off}\n"
+    return 1
+  else
+    trace 2 "[fallback4] NOT EXPIRED, good!"
+  fi
+
+  # Create bolt11 for LN Service LNURL Withdraw
+  local msatoshi=$(echo "${createLnurlWithdraw}" | jq -r '.result.msatoshi')
+  local description=$(echo "${createLnurlWithdraw}" | jq -r '.result.description')
+  local invoice=$(create_bolt11 "${msatoshi}" "${description}")
+  trace 3 "[fallback4] invoice=${invoice}"
+  local bolt11=$(echo ${invoice} | jq -r ".bolt11")
+  trace 3 "[fallback4] bolt11=${bolt11}"
+
+  # We want to see that that invoice is unpaid first...
+  local status=$(get_invoice_status "${invoice}")
+  trace 3 "[fallback4] status=${status}"
+
+  # 6. User calls LNServiceWithdraw -> fails because LN02 is down
+  local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
+  trace 3 "[fallback4] withdrawResponse=${withdrawResponse}"
+
+  echo "${withdrawResponse}" | grep -qi "OK"
+  if [ "$?" -ne "0" ]; then
+    trace 1 "\n\n[fallback4] ${On_IGreen}${BBlack} Fallback 4: failed, good!                                                                ${Color_Off}\n"
+  else
+    trace 1 "\n\n[fallback4] ${On_Red}${BBlack} Fallback 4: Should have failed!                                                            ${Color_Off}\n"
+    return 1
+  fi
+
+  # Reconnecting the two LN instances...
+  ln_reconnect
+
+  # 7. Call ln_pay directly on Cyphernode so that LNURLapp doesn't know about it
+  trace 2 "[fallback4] Calling ln_pay directly on Cyphernode..."
+  local data='{"bolt11":"'${bolt11}'"}'
+  local lnpay=$(curl -sd "${data}" -H "Content-Type: application/json" proxy:8888/ln_pay)
+  trace 3 "[fallback4] lnpay=${lnpay}"
+  lnpaystatus=$(echo "${lnpay}" | jq -r ".status")
+  trace 3 "[fallback4] lnpaystatus=${lnpaystatus}"
+
+  start_callback_server
+
+  # 8. Call forceFallback -> should check payment status and say it's already paid!
+  trace 3 "[fallback4] Forcing fallback..."
+  local force_lnurl_fallback=$(force_lnurl_fallback ${lnurl_withdraw_id})
+  trace 3 "[fallback4] force_lnurl_fallback=${force_lnurl_fallback}"
+
+  echo "${withdrawResponse}" | grep -qi "error"
+  if [ "$?" -eq "0" ]; then
+    trace 1 "\n\n[fallback4] ${On_IGreen}${BBlack} Fallback 4: failed, good!                                                                ${Color_Off}\n"
+  else
+    trace 1 "\n\n[fallback4] ${On_Red}${BBlack} Fallback 4: Should have failed!                                                            ${Color_Off}\n"
+    return 1
+  fi
+
+  wait
+}
+
 start_callback_server() {
   trace 1 "\n\n[start_callback_server] ${BCyan}Let's start a callback server!...${Color_Off}\n"
 
@@ -844,7 +1005,11 @@ callbackservername="lnurl_withdraw_test"
 callbackserverport="1111"
 callbackurl="http://${callbackservername}:${callbackserverport}"
 
-happy_path "${callbackurl}" \
+ln_reconnect
+
+# Let's start with fallback4 so that the LN02 shutdown from run_tests.sh runs and the timing fits...
+fallback4 "${callbackservername}" "${callbackserverport}" \
+&& happy_path "${callbackurl}" \
 && expired1 "${callbackurl}" \
 && expired2 "${callbackurl}" \
 && deleted1 "${callbackurl}" \

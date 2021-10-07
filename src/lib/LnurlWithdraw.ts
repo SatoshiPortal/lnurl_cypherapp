@@ -531,6 +531,89 @@ class LnurlWithdraw {
     return result;
   }
 
+  async lnFetchPaymentStatus(
+    bolt11: string
+  ): Promise<{ paymentStatus?: string; result?: unknown }> {
+    let paymentStatus;
+    let result;
+
+    const resp = await this._cyphernodeClient.lnListPays({
+      bolt11,
+    } as IReqLnListPays);
+
+    if (resp.error) {
+      // Error, should not happen, something's wrong, let's get out of here
+      logger.debug("LnurlWithdraw.lnFetchPaymentStatus, lnListPays errored...");
+    } else if (resp.result && resp.result.pays && resp.result.pays.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      paymentStatus = (resp.result.pays[0] as any).status;
+      logger.debug(
+        "LnurlWithdraw.lnFetchPaymentStatus, paymentStatus =",
+        paymentStatus
+      );
+
+      result = resp.result;
+    } else {
+      // Error, should not happen, something's wrong, let's try with paystatus...
+      logger.debug(
+        "LnurlWithdraw.lnFetchPaymentStatus, no previous listpays for this bolt11..."
+      );
+
+      const paystatus = await this._cyphernodeClient.lnPayStatus({
+        bolt11,
+      } as IReqLnListPays);
+
+      if (paystatus.error) {
+        // Error, should not happen, something's wrong, let's get out of here
+        logger.debug(
+          "LnurlWithdraw.lnFetchPaymentStatus, lnPayStatus errored..."
+        );
+      } else if (paystatus.result) {
+        logger.debug(
+          "LnurlWithdraw.lnFetchPaymentStatus, lnPayStatus success..."
+        );
+
+        // We parse paystatus result
+        // pay[] is an array of payments
+        // attempts[] is an array of attempts for each payment
+        // As soon as there's a "success" field in attemps, payment succeeded!
+        // If the last attempt doesn't have a "failure" field, it means there's a pending attempt
+        // If the last attempt has a "failure" field, it means payment failed.
+        let success = false;
+        let failure = null;
+        paystatus.result.pay.forEach((pay) => {
+          pay.attempts.forEach((attempt) => {
+            if (attempt.success) {
+              success = true;
+              return;
+            } else if (attempt.failure) {
+              failure = true;
+            } else {
+              failure = false;
+            }
+          });
+        });
+
+        if (success) {
+          paymentStatus = "complete";
+        } else if (failure === false) {
+          paymentStatus = "pending";
+        } else {
+          paymentStatus = "failed";
+        }
+
+        logger.debug(
+          "LnurlWithdraw.lnFetchPaymentStatus, paymentStatus =",
+          paymentStatus
+        );
+
+        result = paystatus.result;
+      }
+    }
+
+    return { paymentStatus, result };
+  }
+
   async lnServiceWithdraw(
     params: IReqLnurlWithdraw
   ): Promise<IRespLnServiceStatus> {
@@ -577,112 +660,22 @@ class LnurlWithdraw {
 
               if (lnurlWithdrawEntity.bolt11) {
                 // Payment request has been made before, check payment status
-                const resp = await this._cyphernodeClient.lnListPays({
-                  bolt11: lnurlWithdrawEntity.bolt11,
-                } as IReqLnListPays);
+                const paymentStatus = await this.lnFetchPaymentStatus(
+                  lnurlWithdrawEntity.bolt11
+                );
 
-                if (resp.error) {
-                  // Error, should not happen, something's wrong, let's get out of here
-                  logger.debug(
-                    "LnurlWithdraw.lnServiceWithdraw, lnListPays errored..."
-                  );
+                if (paymentStatus.paymentStatus === undefined) {
                   result = {
                     status: "ERROR",
                     reason: "Something unexpected happened",
                   };
-                } else if (
-                  resp.result &&
-                  resp.result.pays &&
-                  resp.result.pays.length > 0
-                ) {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  const paymentStatus = (resp.result.pays[0] as any).status;
-                  logger.debug(
-                    "LnurlWithdraw.lnServiceWithdraw, paymentStatus =",
-                    paymentStatus
-                  );
-
+                } else {
                   result = await this.processLnStatus(
-                    paymentStatus,
+                    paymentStatus.paymentStatus,
                     lnurlWithdrawEntity,
                     params.pr,
-                    resp.result
+                    paymentStatus.result
                   );
-                } else {
-                  // Error, should not happen, something's wrong, let's try with paystatus...
-                  logger.debug(
-                    "LnurlWithdraw.lnServiceWithdraw, no previous listpays for this bolt11..."
-                  );
-
-                  const paystatus = await this._cyphernodeClient.lnPayStatus({
-                    bolt11: lnurlWithdrawEntity.bolt11,
-                  } as IReqLnListPays);
-
-                  if (paystatus.error) {
-                    // Error, should not happen, something's wrong, let's get out of here
-                    logger.debug(
-                      "LnurlWithdraw.lnServiceWithdraw, lnPayStatus errored..."
-                    );
-                    result = {
-                      status: "ERROR",
-                      reason: "Something unexpected happened",
-                    };
-                  } else if (paystatus.result) {
-                    logger.debug(
-                      "LnurlWithdraw.lnServiceWithdraw, lnPayStatus success..."
-                    );
-
-                    // We parse paystatus result
-                    // pay[] is an array of payments
-                    // attempts[] is an array of attempts for each payment
-                    // As soon as there's a "success" field in attemps, payment succeeded!
-                    // If the last attempt doesn't have a "failure" field, it means there's a pending attempt
-                    // If the last attempt has a "failure" field, it means payment failed.
-                    let success = false;
-                    let failure = null;
-                    paystatus.result.pay.forEach((pay) => {
-                      pay.attempts.forEach((attempt) => {
-                        if (attempt.success) {
-                          success = true;
-                          return;
-                        } else if (attempt.failure) {
-                          failure = true;
-                        } else {
-                          failure = false;
-                        }
-                      });
-                    });
-
-                    let paymentStatus;
-                    if (success) {
-                      paymentStatus = "complete";
-                    } else if (failure === false) {
-                      paymentStatus = "pending";
-                    } else {
-                      paymentStatus = "failed";
-                    }
-
-                    logger.debug(
-                      "LnurlWithdraw.lnServiceWithdraw, paymentStatus =",
-                      paymentStatus
-                    );
-
-                    result = await this.processLnStatus(
-                      paymentStatus,
-                      lnurlWithdrawEntity,
-                      params.pr,
-                      paystatus.result
-                    );
-                  } else {
-                    // Error, should not happen, something's wrong, let's get out of here
-                    logger.debug(
-                      "LnurlWithdraw.lnServiceWithdraw, lnPayStatus errored..."
-                    );
-                    result = {
-                      status: "ERROR",
-                      reason: "Something unexpected happened",
-                    };
-                  }
                 }
               } else {
                 // Not previously claimed LNURL
@@ -892,98 +885,135 @@ class LnurlWithdraw {
             lnurlWithdrawEntity
           );
 
-          if (lnurlWithdrawEntity.batchFallback) {
-            logger.debug("LnurlWithdraw.processFallbacks, batched fallback");
+          let proceedToFallback = true;
+          if (lnurlWithdrawEntity.bolt11) {
+            // Before falling back on-chain, let's make really sure the payment has not been done...
+            const paymentStatus = await this.lnFetchPaymentStatus(
+              lnurlWithdrawEntity.bolt11
+            );
 
-            if (lnurlWithdrawEntity.batchRequestId) {
-              logger.debug("LnurlWithdraw.processFallbacks, already batched!");
-            } else {
-              const batchRequestTO: IReqBatchRequest = {
-                externalId: lnurlWithdrawEntity.externalId || undefined,
-                description: lnurlWithdrawEntity.description || undefined,
-                address: lnurlWithdrawEntity.btcFallbackAddress || "",
-                amount: Math.round(lnurlWithdrawEntity.msatoshi / 1000) / 1e8,
-                webhookUrl:
-                  this._lnurlConfig.URL_API_SERVER +
-                  ":" +
-                  this._lnurlConfig.URL_API_PORT +
-                  this._lnurlConfig.URL_CTX_WEBHOOKS,
-              };
+            if (paymentStatus.paymentStatus === undefined) {
+              logger.debug(
+                "LnurlWithdraw.processFallbacks: Can't get LnurlWithdraw previously paid status."
+              );
+              proceedToFallback = false;
+            } else if (paymentStatus.paymentStatus !== "failed") {
+              logger.debug(
+                "LnurlWithdraw.processFallbacks: LnurlWithdraw payment already " +
+                  paymentStatus.paymentStatus
+              );
+              proceedToFallback = false;
 
-              const resp: IRespBatchRequest = await this._batcherClient.queueForNextBatch(
-                batchRequestTO
+              lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+                paymentStatus.result
+              );
+              // lnurlWithdrawEntity.withdrawnTs = new Date();
+              lnurlWithdrawEntity.paid = true;
+
+              lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+                lnurlWithdrawEntity
               );
 
-              if (resp.error) {
-                logger.debug(
-                  "LnurlWithdraw.processFallbacks, queueForNextBatch error!"
-                );
+              this.checkWebhook(lnurlWithdrawEntity);
+            }
+          }
 
-                lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
-                  resp.error
+          if (proceedToFallback) {
+            if (lnurlWithdrawEntity.batchFallback) {
+              logger.debug("LnurlWithdraw.processFallbacks, batched fallback");
+
+              if (lnurlWithdrawEntity.batchRequestId) {
+                logger.debug(
+                  "LnurlWithdraw.processFallbacks, already batched!"
                 );
               } else {
+                const batchRequestTO: IReqBatchRequest = {
+                  externalId: lnurlWithdrawEntity.externalId || undefined,
+                  description: lnurlWithdrawEntity.description || undefined,
+                  address: lnurlWithdrawEntity.btcFallbackAddress || "",
+                  amount: Math.round(lnurlWithdrawEntity.msatoshi / 1000) / 1e8,
+                  webhookUrl:
+                    this._lnurlConfig.URL_API_SERVER +
+                    ":" +
+                    this._lnurlConfig.URL_API_PORT +
+                    this._lnurlConfig.URL_CTX_WEBHOOKS,
+                };
+
+                const resp: IRespBatchRequest = await this._batcherClient.queueForNextBatch(
+                  batchRequestTO
+                );
+
+                if (resp.error) {
+                  logger.debug(
+                    "LnurlWithdraw.processFallbacks, queueForNextBatch error!"
+                  );
+
+                  lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+                    resp.error
+                  );
+                } else {
+                  logger.debug(
+                    "LnurlWithdraw.processFallbacks, queueForNextBatch success!"
+                  );
+
+                  lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+                    resp.result
+                  );
+                  lnurlWithdrawEntity.batchRequestId =
+                    resp.result?.batchRequestId || null;
+                }
+
+                lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+                  lnurlWithdrawEntity
+                );
+
+                if (lnurlWithdrawEntity.batchRequestId) {
+                  this.processCallbacks(lnurlWithdrawEntity);
+                }
+              }
+            } else {
+              logger.debug(
+                "LnurlWithdraw.processFallbacks, not batched fallback"
+              );
+
+              const spendRequestTO: IReqSpend = {
+                address: lnurlWithdrawEntity.btcFallbackAddress || "",
+                amount: Math.round(lnurlWithdrawEntity.msatoshi / 1000) / 1e8,
+              };
+
+              const spendResp: IRespSpend = await this._cyphernodeClient.spend(
+                spendRequestTO
+              );
+
+              if (spendResp?.error) {
+                // There was an error on Cyphernode end, return that.
                 logger.debug(
-                  "LnurlWithdraw.processFallbacks, queueForNextBatch success!"
+                  "LnurlWithdraw.processFallbacks: There was an error on Cyphernode spend."
                 );
 
                 lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
-                  resp.result
+                  spendResp.error
                 );
-                lnurlWithdrawEntity.batchRequestId =
-                  resp.result?.batchRequestId || null;
+              } else if (spendResp?.result) {
+                logger.debug(
+                  "LnurlWithdraw.processFallbacks: Cyphernode spent: ",
+                  spendResp.result
+                );
+                lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+                  spendResp.result
+                );
+                lnurlWithdrawEntity.withdrawnTs = new Date();
+                lnurlWithdrawEntity.paid = true;
+                lnurlWithdrawEntity.fallbackDone = true;
               }
 
               lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
                 lnurlWithdrawEntity
               );
 
-              if (lnurlWithdrawEntity.batchRequestId) {
+              if (lnurlWithdrawEntity.fallbackDone) {
                 this.processCallbacks(lnurlWithdrawEntity);
               }
-            }
-          } else {
-            logger.debug(
-              "LnurlWithdraw.processFallbacks, not batched fallback"
-            );
-
-            const spendRequestTO: IReqSpend = {
-              address: lnurlWithdrawEntity.btcFallbackAddress || "",
-              amount: Math.round(lnurlWithdrawEntity.msatoshi / 1000) / 1e8,
-            };
-
-            const spendResp: IRespSpend = await this._cyphernodeClient.spend(
-              spendRequestTO
-            );
-
-            if (spendResp?.error) {
-              // There was an error on Cyphernode end, return that.
-              logger.debug(
-                "LnurlWithdraw.processFallbacks: There was an error on Cyphernode spend."
-              );
-
-              lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
-                spendResp.error
-              );
-            } else if (spendResp?.result) {
-              logger.debug(
-                "LnurlWithdraw.processFallbacks: Cyphernode spent: ",
-                spendResp.result
-              );
-              lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
-                spendResp.result
-              );
-              lnurlWithdrawEntity.withdrawnTs = new Date();
-              lnurlWithdrawEntity.paid = true;
-              lnurlWithdrawEntity.fallbackDone = true;
-            }
-
-            lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-              lnurlWithdrawEntity
-            );
-
-            if (lnurlWithdrawEntity.fallbackDone) {
-              this.processCallbacks(lnurlWithdrawEntity);
             }
           }
         });
@@ -1029,20 +1059,67 @@ class LnurlWithdraw {
                 "LnurlWithdraw.forceFallback, unpaid lnurlWithdrawEntity found for this lnurlWithdrawId!"
               );
 
-              const yesterday = new Date();
-              yesterday.setDate(yesterday.getDate() - 1);
-              lnurlWithdrawEntity.expiresAt = yesterday;
-              lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
-                lnurlWithdrawEntity
-              );
+              if (lnurlWithdrawEntity.bolt11) {
+                // Payment request has been made before...
+                // Before falling back on-chain, let's make really sure the payment has not been done...
+                const paymentStatus = await this.lnFetchPaymentStatus(
+                  lnurlWithdrawEntity.bolt11
+                );
 
-              const lnurlDecoded = await Utils.decodeBech32(
-                lnurlWithdrawEntity?.lnurl || ""
-              );
+                if (paymentStatus.paymentStatus === undefined) {
+                  logger.debug(
+                    "LnurlWithdraw.forceFallback, can't get LnurlWithdraw previously paid status!"
+                  );
 
-              response.result = Object.assign(lnurlWithdrawEntity, {
-                lnurlDecoded,
-              });
+                  response.error = {
+                    code: ErrorCodes.InvalidRequest,
+                    message: "Can't get LnurlWithdraw previously paid status",
+                  };
+                } else {
+                  if (paymentStatus.paymentStatus !== "failed") {
+                    logger.debug(
+                      "LnurlWithdraw.forceFallback, LnurlWithdraw payment already " +
+                        paymentStatus.paymentStatus
+                    );
+
+                    response.error = {
+                      code: ErrorCodes.InvalidRequest,
+                      message:
+                        "LnurlWithdraw payment already " +
+                        paymentStatus.paymentStatus,
+                    };
+
+                    lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(
+                      paymentStatus.result
+                    );
+                    // lnurlWithdrawEntity.withdrawnTs = new Date();
+                    lnurlWithdrawEntity.paid = true;
+
+                    lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+                      lnurlWithdrawEntity
+                    );
+
+                    this.checkWebhook(lnurlWithdrawEntity);
+                  }
+                }
+              }
+
+              if (!response.error) {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                lnurlWithdrawEntity.expiresAt = yesterday;
+                lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
+                  lnurlWithdrawEntity
+                );
+
+                const lnurlDecoded = await Utils.decodeBech32(
+                  lnurlWithdrawEntity?.lnurl || ""
+                );
+
+                response.result = Object.assign(lnurlWithdrawEntity, {
+                  lnurlDecoded,
+                });
+              }
             } else {
               // LnurlWithdraw already paid
               logger.debug(
