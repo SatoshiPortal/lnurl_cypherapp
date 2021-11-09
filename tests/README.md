@@ -56,11 +56,11 @@ dist/apps/sparkwallet2/docker-compose.yaml:
 ```yaml
   cyphernode_sparkwallet2:
     command: --no-tls ${TOR_PARAMS}
-    image: cyphernode/sparkwallet:v0.2.17
+    image: cyphernode/sparkwallet:v0.3.0
     environment:
       - "NETWORK=${NETWORK}"
     volumes:
-      - "/yourCyphernodePath/dist/cyphernode/lightning2:/etc/lightning"
+      - "/yourCyphernodePath/dist/cyphernode/lightning2/${NETWORK}:/etc/lightning"
       - "$APP_SCRIPT_PATH/cookie:/data/spark/cookie"
       - "$GATEKEEPER_DATAPATH/htpasswd:/htpasswd/htpasswd"
     labels:
@@ -102,15 +102,13 @@ dist/apps/sparkwallet2/docker-compose.yaml:
 
 ## Test LNURL-withdraw
 
+Make sure you're in regtest.
+
 Container `lightning` is used by Cyphernode and `lightning2` will be our user.
 
-Run ./run_tests.sh or
+Run ./test-lnurl-withdraw.sh
 
-```bash
-docker run --rm -it -v "$PWD:/tests" --network=cyphernodeappsnet alpine /tests/lnurl_withdraw.sh
-```
-
-lnurl_withdraw.sh will simulate real-world use cases:
+test-lnurl-withdraw.sh will simulate real-world use cases:
 
 ### Happy path
 
@@ -173,3 +171,26 @@ lnurl_withdraw.sh will simulate real-world use cases:
 7. Fallback should be triggered, added to current batch using the Batcher
 8. Wait for the batch to execute, LNURL callback called (port 1111), Cyphernode's watch callback called (port 1112), Batcher's execute callback called (port 1113)
 9. Mined block and Cyphernode's confirmed watch callback called (port 1114)
+
+### fallback 3, force fallback
+
+1. Cyphernode.getnewaddress -> btcfallbackaddr
+2. Cyphernode.watch btcfallbackaddr
+3. Listen to watch webhook
+4. Create a LNURL Withdraw with expiration=tomorrow and a btcfallbackaddr
+5. Get it and compare
+6. User calls LNServiceWithdrawRequest -> works, not expired!
+7. Call forceFallback
+8. Fallback should be triggered, LNURL callback called (port 1111), Cyphernode's watch callback called (port 1112)
+9. Mined block and Cyphernode's confirmed watch callback called (port 1113)
+
+### fallback 4, execute fallback on a bolt11 paid in background (lnurl app doesn't know it's been paid)
+
+1. Cyphernode.getnewaddress -> btcfallbackaddr
+2. Create a LNURL Withdraw with expiration=tomorrow and a btcfallbackaddr
+3. Get it and compare
+4. User calls LNServiceWithdrawRequest -> works, not expired!
+5. Shut down LN02
+6. User calls LNServiceWithdraw -> fails because LN02 is down
+7. Call ln_pay directly on Cyphernode so that LNURLapp doesn't know about it
+8. Call forceFallback -> should check payment status and say it's already paid!

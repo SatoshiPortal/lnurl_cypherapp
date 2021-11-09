@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# This is a helper script to create a balanced channel between lightning and lightning2
+
 . ./mine.sh
 
 date

@@ -1,5 +1,28 @@
 #!/bin/sh
 
+#
+# This is a super basic LNURL-compatible wallet, command-line
+# Useful to test LNURL on a regtest or testnet environment.
+#
+
+#
+# This script assumes you have lightning and lightning2 running.
+# It will use lightning2 as the destination wallet (user's wallet)
+# It will use lightning as the source wallet (service's wallet)
+#
+# If you don't have a lnurl and want to create one to call withdraw:
+#
+# ./lnurl_withdraw_wallet.sh createlnurl
+#
+# If you have a lnurl string and want to withdraw it to your lightning2 node:
+#
+# ./lnurl_withdraw_wallet.sh <lnurl>
+#
+# If you have a lnurl string and want to withdraw it to a specific bolt11:
+#
+# ./lnurl_withdraw_wallet.sh <lnurl> <bolt11>
+#
+
 . /tests/colors.sh
 
 trace() {
