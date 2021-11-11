@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # This needs to be run in regtest
 # You need jq installed for these tests to run correctly
@@ -95,7 +95,7 @@
 
 trace() {
   if [ "${1}" -le "${TRACING}" ]; then
-    echo "$(date -u +%FT%TZ) ${2}" 1>&2
+    echo -e "$(date -u +%FT%TZ) ${2}" 1>&2
   fi
 }
 
@@ -234,6 +234,12 @@ force_lnurl_fallback() {
 
   local expiresAt=$(echo "${forceFallback}" | jq -r ".result.expiresAt")
   trace 3 "[force_lnurl_fallback] expiresAt=${expiresAt}"
+  if [ "${expiresAt}" = "null" ]; then
+    trace 2 "[force_lnurl_fallback] No expiresAt field, could be normal but forceFallback failed..."
+    echo "${forceFallback}"
+    return 1
+  fi
+
   # 2021-11-04T20:55:13.720Z
   local expiresAtEpoch=$(exec_in_test_container date -d "${expiresAt}" -D "%Y-%m-%dT%H:%M:%S" +"%s")
   trace 3 "[force_lnurl_fallback] expiresAtEpoch=${expiresAtEpoch}"
@@ -383,11 +389,11 @@ happy_path() {
 
   start_callback_server
 
+  trace 2 "\n\n[fallback2] ${BPurple}Waiting for the LNURL payment callback...\n${Color_Off}"
+
   # User calls LN Service LNURL Withdraw
   local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
   trace 3 "[happy_path] withdrawResponse=${withdrawResponse}"
-
-  trace 2 "\n\n[fallback2] ${BPurple}Waiting for the LNURL payment callback...\n${Color_Off}"
 
   wait
 
@@ -715,6 +721,8 @@ fallback1() {
   start_callback_server
   start_callback_server ${zeroconfport} 2
 
+  trace 2 "\n\n[fallback1] ${BPurple}Waiting for fallback execution, fallback callback and the 0-conf callback...${Color_Off}\n"
+
   # User calls LN Service LNURL Withdraw Request
   local withdrawRequestResponse=$(call_lnservice_withdraw_request "${serviceUrl}")
   trace 3 "[fallback1] withdrawRequestResponse=${withdrawRequestResponse}"
@@ -726,8 +734,6 @@ fallback1() {
   else
     trace 2 "[fallback1] EXPIRED!"
   fi
-
-  trace 2 "\n\n[fallback1] ${BPurple}Waiting for fallback execution, fallback callback and the 0-conf callback...${Color_Off}\n"
 
   wait
 
@@ -801,6 +807,8 @@ fallback2() {
   # fallback batched callback
   start_callback_server
 
+  trace 2 "\n\n[fallback2] ${BPurple}Waiting for fallback batched callback...\n${Color_Off}"
+
   # User calls LN Service LNURL Withdraw Request
   local withdrawRequestResponse=$(call_lnservice_withdraw_request "${serviceUrl}")
   trace 3 "[fallback2] withdrawRequestResponse=${withdrawRequestResponse}"
@@ -812,8 +820,6 @@ fallback2() {
   else
     trace 2 "[fallback2] EXPIRED!"
   fi
-
-  trace 2 "\n\n[fallback2] ${BPurple}Waiting for fallback batched callback...\n${Color_Off}"
 
   wait
 
@@ -909,11 +915,16 @@ fallback3() {
     trace 2 "[fallback3] NOT EXPIRED, good!"
   fi
 
-  trace 3 "[fallback3] Forcing fallback..."
-  local force_lnurl_fallback=$(force_lnurl_fallback ${lnurl_withdraw_id})
-  trace 3 "[fallback3] force_lnurl_fallback=${force_lnurl_fallback}"
-  
   trace 2 "\n\n[fallback3] ${BPurple}Waiting for fallback execution and the 0-conf callback...\n${Color_Off}"
+
+  trace 3 "[fallback3] Forcing fallback..."
+  local force_lnurl_fallback
+  force_lnurl_fallback=$(force_lnurl_fallback ${lnurl_withdraw_id})
+  if [ "$?" -ne "0" ]; then
+    trace 1 "\n\n[fallback3] ${On_Red}${BBlack} forceFallback failed!                                                                         ${Color_Off}\n"
+    return 1
+  fi
+  trace 3 "[fallback3] force_lnurl_fallback=${force_lnurl_fallback}"
 
   wait
 
@@ -1028,10 +1039,20 @@ fallback4() {
 
   start_callback_server
 
+  trace 2 "\n\n[fallback4] ${BPurple}Waiting for fallback execution callback...\n${Color_Off}"
+
   # 8. Call forceFallback -> should check payment status and say it's already paid!
   trace 3 "[fallback4] Forcing fallback..."
-  local force_lnurl_fallback=$(force_lnurl_fallback ${lnurl_withdraw_id})
-  trace 3 "[fallback4] force_lnurl_fallback=${force_lnurl_fallback}"
+  local force_lnurl_fallback
+  force_lnurl_fallback=$(force_lnurl_fallback ${lnurl_withdraw_id})
+  if [ "$?" -ne "0" ]; then
+    trace 3 "[fallback4] force_lnurl_fallback=${force_lnurl_fallback}"
+    trace 1 "\n\n[fallback4] ${On_IGreen}${BBlack} forceFallback failed, good!                                                                ${Color_Off}\n"
+  else
+    trace 3 "[fallback4] force_lnurl_fallback=${force_lnurl_fallback}"
+    trace 1 "\n\n[fallback4] ${On_Red}${BBlack} forceFallback should have failed!                                                            ${Color_Off}\n"
+    return 1
+  fi
 
   echo "${withdrawResponse}" | grep -qi "error"
   if [ "$?" -eq "0" ]; then
@@ -1040,8 +1061,6 @@ fallback4() {
     trace 1 "\n\n[fallback4] ${On_Red}${BBlack} Fallback 4: Should have failed!                                                            ${Color_Off}\n"
     return 1
   fi
-
-  trace 2 "\n\n[fallback4] ${BPurple}Waiting for fallback execution callback...\n${Color_Off}"
 
   wait
 }

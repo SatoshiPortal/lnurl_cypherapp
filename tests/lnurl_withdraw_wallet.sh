@@ -1,6 +1,8 @@
 #!/bin/sh
 
 #
+# Must be run using run_lnurl_withdraw_wallet.sh
+#
 # This is a super basic LNURL-compatible wallet, command-line
 # Useful to test LNURL on a regtest or testnet environment.
 #
