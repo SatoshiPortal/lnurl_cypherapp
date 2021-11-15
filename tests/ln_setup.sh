@@ -11,8 +11,19 @@ connectstring2=$(echo "$(docker exec -it `docker ps -q -f "name=lightning2\."` l
 echo ; echo "connectstring2=${connectstring2}"
 
 # Mine enough blocks
-mine 105
+#mine 105
 channelmsats=8000000000
+
+# Fund LN node
+address=$(docker exec -it `docker ps -q -f "name=proxy\."` curl localhost:8888/ln_newaddr | jq -r ".bech32")
+echo ; echo "address=${address}"
+data='{"address":"'${address}'","amount":1}'
+docker exec -it `docker ps -q -f "name=proxy\."` curl -d "${data}" localhost:8888/spend
+
+mine 6
+
+echo ; echo "Sleeping 5 seconds..."
+sleep 5
 
 # Create a channel between the two nodes
 data='{"peer":"'${connectstring2}'","msatoshi":'${channelmsats}'}'
@@ -25,8 +36,8 @@ sleep 5
 # Make the channel ready
 mine 6
 
-echo ; echo "Sleeping 30 seconds..."
-sleep 30
+echo ; echo "Sleeping 15 seconds..."
+sleep 15
 
 # Balance the channel
 invoicenumber=$RANDOM

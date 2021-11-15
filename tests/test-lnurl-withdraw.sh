@@ -121,37 +121,6 @@ exec_in_test_container_leave_lf() {
   docker exec -it tests-lnurl-withdraw "$@"
 }
 
-ln_reconnect_with_sparkwallet() {
-  trace 2 "\n\n[ln_reconnect] ${BCyan}Reconnecting the two LN instances...${Color_Off}\n"
-
-  exec_in_test_container_leave_lf sh -c 'while true ; do ping -c 1 cyphernode_lightning ; [ "$?" -eq "0" ] && break ; sleep 5; done'
-  exec_in_test_container_leave_lf sh -c 'while true ; do ping -c 1 cyphernode_lightning2 ; [ "$?" -eq "0" ] && break ; sleep 5; done'
-
-  local data='{"id":1,"jsonrpc":"2.0","method":"getinfo","params":[]}'
-  trace 3 "[ln_reconnect] data=${data}"
-  local getinfo1=$(exec_in_test_container curl -sd "${data}" -H "X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=" -H "Content-Type: application/json" cyphernode_sparkwallet:9737/rpc)
-  trace 3 "[ln_reconnect] getinfo1=${getinfo1}"
-  local id1=$(echo "${getinfo1}" | jq -r ".id")
-  trace 3 "[ln_reconnect] id1=${id1}"
-
-  data='{"id":1,"jsonrpc":"2.0","method":"getinfo","params":[]}'
-  trace 3 "[ln_reconnect] data=${data}"
-  local getinfo2=$(exec_in_test_container curl -sd "${data}" -H "X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=" -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
-  trace 3 "[ln_reconnect] getinfo2=${getinfo2}"
-  local id2=$(echo "${getinfo2}" | jq -r ".id")
-  trace 3 "[ln_reconnect] id2=${id2}"
-
-  data='{"id":1,"jsonrpc":"2.0","method":"connect","params":["'${id2}'@lightning2"]}'
-  trace 3 "[ln_reconnect] data=${data}"
-  local connect=$(exec_in_test_container curl -sd "${data}" -H "X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=" -H "Content-Type: application/json" cyphernode_sparkwallet:9737/rpc)
-  trace 3 "[ln_reconnect] connect=${connect}"
-
-  data='{"id":1,"jsonrpc":"2.0","method":"connect","params":["'${id1}'@lightning"]}'
-  trace 3 "[ln_reconnect] data=${data}"
-  local connect2=$(exec_in_test_container curl -sd "${data}" -H "X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=" -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
-  trace 3 "[ln_reconnect] connect2=${connect2}"
-}
-
 create_lnurl_withdraw() {
   trace 2 "\n\n[create_lnurl_withdraw] ${BCyan}Service creates LNURL Withdraw...${Color_Off}\n"
 
@@ -288,9 +257,7 @@ create_bolt11() {
   local desc=${2}
   trace 3 "[create_bolt11] desc=${desc}"
 
-  local data='{"id":1,"jsonrpc":"2.0","method":"invoice","params":{"msatoshi":'${msatoshi}',"label":"'${desc}'","description":"'${desc}'"}}'
-  trace 3 "[create_bolt11] data=${data}"
-  local invoice=$(exec_in_test_container curl -sd "${data}" -H "X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=" -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
+  local invoice=$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli --lightning-dir=/.lightning invoice ${msatoshi} "${desc}" "${desc}")
   trace 3 "[create_bolt11] invoice=${invoice}"
 
   echo "${invoice}"
@@ -306,7 +273,7 @@ get_invoice_status() {
   trace 3 "[get_invoice_status] payment_hash=${payment_hash}"
   local data='{"id":1,"jsonrpc":"2.0","method":"listinvoices","params":{"payment_hash":"'${payment_hash}'"}}'
   trace 3 "[get_invoice_status] data=${data}"
-  local invoices=$(exec_in_test_container curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
+  local invoices=$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli --lightning-dir=/.lightning listinvoices -k payment_hash=${payment_hash})
   trace 3 "[get_invoice_status] invoices=${invoices}"
   local status=$(echo "${invoices}" | jq -r ".invoices[0].status")
   trace 3 "[get_invoice_status] status=${status}"
