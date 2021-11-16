@@ -1096,7 +1096,10 @@ class LnurlWithdraw {
                       paymentStatus.result
                     );
                     // lnurlWithdrawEntity.withdrawnTs = new Date();
-                    lnurlWithdrawEntity.paid = true;
+                    if (paymentStatus.paymentStatus === "complete") {
+                      // We set status to paid only if completed... not when pending!
+                      lnurlWithdrawEntity.paid = true;
+                    }
 
                     lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(
                       lnurlWithdrawEntity
