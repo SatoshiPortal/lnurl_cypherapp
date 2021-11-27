@@ -180,14 +180,26 @@ class BatcherClient {
     const response = await this._post("/api", data);
 
     logger.debug("BatcherClient.queueForNextBatch, response:", response);
+    // Errors may include local ones like this:
+    // {
+    //   status: -1,
+    //   data: {
+    //     code: 'ECONNABORTED',
+    //     message: 'timeout of 30000ms exceeded'
+    //   }
+    // }
 
     if (response.status >= 200 && response.status < 400) {
       result = { result: response.data.result };
     } else {
       result = {
         error: {
-          code: response.data.error.code,
-          message: response.data.error.message,
+          code: response.data.error
+            ? response.data.error.code
+            : response.data.code,
+          message: response.data.error
+            ? response.data.error.message
+            : response.data.message,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as IResponseError<any>,
       } as IRespBatchRequest;
