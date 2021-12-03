@@ -4,8 +4,8 @@ ln_reconnect() {
 
   # First ping the containers to make sure they're up...
   docker run --rm -it --name ln-reconnecter --network cyphernodenet alpine sh -c '
-  while true ; do ping -c 1 cyphernode_lightning ; [ "$?" -eq "0" ] && break ; sleep 5; done
-  while true ; do ping -c 1 cyphernode_lightning2 ; [ "$?" -eq "0" ] && break ; sleep 5; done
+  while true ; do ping -c 1 lightning ; [ "$?" -eq "0" ] && break ; sleep 5; done
+  while true ; do ping -c 1 lightning2 ; [ "$?" -eq "0" ] && break ; sleep 5; done
   '
 
   # Now check if the lightning nodes are ready to accept requests...
