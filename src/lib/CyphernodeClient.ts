@@ -96,16 +96,21 @@ class CyphernodeClient {
     }
 
     // logger.debug(
-    //   "CyphernodeClient._post :: configs: %s",
+    //   "CyphernodeClient._post :: configs:",
     //   JSON.stringify(configs)
     // );
 
     try {
       const response = await axios.request(configs);
-      logger.debug("CyphernodeClient._post :: response.data:", response.data);
+      // logger.debug("CyphernodeClient._post :: response:", response);
+      // response.data used to be a string, looks like it's now an object... taking no chance.
+      const str = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+      logger.debug("CyphernodeClient._post :: response.data:", str.substring(0, 1000));
 
       return { status: response.status, data: response.data };
     } catch (err) {
+      // logger.debug("CyphernodeClient._post :: catch, err:", err);
+
       if (axios.isAxiosError(err)) {
         const error: AxiosError = err;
 
@@ -172,7 +177,9 @@ class CyphernodeClient {
 
     try {
       const response = await axios.request(configs);
-      logger.debug("CyphernodeClient._get :: response.data:", response.data);
+      // response.data used to be a string, looks like it's now an object... taking no chance.
+      const str = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
+      logger.debug("CyphernodeClient._get :: response.data:", str.substring(0, 1000));
 
       return { status: response.status, data: response.data };
     } catch (err) {

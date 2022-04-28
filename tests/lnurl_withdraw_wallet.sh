@@ -1,7 +1,5 @@
-#!/bin/sh
+#!/bin/bash
 
-#
-# Must be run using run_lnurl_withdraw_wallet.sh
 #
 # This is a super basic LNURL-compatible wallet, command-line
 # Useful to test LNURL on a regtest or testnet environment.
@@ -25,13 +23,34 @@
 # ./lnurl_withdraw_wallet.sh <lnurl> <bolt11>
 #
 
-. /tests/colors.sh
+. ./colors.sh
 
 trace() {
   if [ "${1}" -le "${TRACING}" ]; then
-    local str="$(date -Is) $$ ${2}"
-    echo -e "${str}" 1>&2
+    echo -e "$(date -u +%FT%TZ) ${2}" 1>&2
   fi
+}
+
+start_test_container() {
+  docker run -d --rm -it --name lnurl-withdraw-wallet --network=cyphernodeappsnet alpine
+  docker network connect cyphernodenet lnurl-withdraw-wallet
+}
+
+stop_test_container() {
+  trace 1 "\n\n[stop_test_container] ${BCyan}Stopping existing containers if they are running...${Color_Off}\n"
+
+  local containers=$(docker ps -q -f "name=lnurl-withdraw-wallet")
+  if [ -n "${containers}" ]; then
+    docker stop $(docker ps -q -f "name=lnurl-withdraw-wallet")
+  fi
+}
+
+exec_in_test_container() {
+  docker exec -it lnurl-withdraw-wallet "$@" | tr -d '\r\n'
+}
+
+exec_in_test_container_leave_lf() {
+  docker exec -it lnurl-withdraw-wallet "$@"
 }
 
 create_lnurl_withdraw() {
@@ -45,20 +64,16 @@ create_lnurl_withdraw() {
   local msatoshi=$((500000+${invoicenumber}))
   trace 3 "[create_lnurl_withdraw] msatoshi=${msatoshi}"
   local expiration_offset=${2:-0}
-  local expiration=$(date -d @$(($(date -u +"%s")+${expiration_offset})) +"%Y-%m-%dT%H:%M:%SZ")
+  local expiration=$(exec_in_test_container date -d @$(($(date -u +"%s")+${expiration_offset})) +"%Y-%m-%dT%H:%M:%SZ")
   trace 3 "[create_lnurl_withdraw] expiration=${expiration}"
   local fallback_addr=${4:-""}
   local fallback_batched=${5:-"false"}
 
-  if [ -n "${callbackurl}" ]; then
-    callbackurl=',"webhookUrl":"'${callbackurl}'/lnurl/inv'${invoicenumber}'"'
-  fi
-
   # Service creates LNURL Withdraw
-  data='{"id":0,"method":"createLnurlWithdraw","params":{"msatoshi":'${msatoshi}',"description":"desc'${invoicenumber}'","expiresAt":"'${expiration}'"'${callbackurl}',"btcFallbackAddress":"'${fallback_addr}'","batchFallback":'${fallback_batched}'}}'
+  data='{"id":0,"method":"createLnurlWithdraw","params":{"msatoshi":'${msatoshi}',"description":"desc'${invoicenumber}'","expiresAt":"'${expiration}'","webhookUrl":"'${callbackurl}'/lnurl/inv'${invoicenumber}'","btcFallbackAddress":"'${fallback_addr}'","batchFallback":'${fallback_batched}'}}'
   trace 3 "[create_lnurl_withdraw] data=${data}"
   trace 3 "[create_lnurl_withdraw] Calling createLnurlWithdraw..."
-  local createLnurlWithdraw=$(curl -sd "${data}" -H "Content-Type: application/json" lnurl:8000/api)
+  local createLnurlWithdraw=$(exec_in_test_container curl -sd "${data}" -H "Content-Type: application/json" lnurl:8000/api)
   trace 3 "[create_lnurl_withdraw] createLnurlWithdraw=${createLnurlWithdraw}"
 
   # {"id":0,"result":{"msatoshi":100000000,"description":"desc01","expiresAt":"2021-07-15T12:12:23.112Z","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
@@ -75,7 +90,7 @@ decode_lnurl() {
 
   local data='{"id":0,"method":"decodeBech32","params":{"s":"'${lnurl}'"}}'
   trace 3 "[decode_lnurl] data=${data}"
-  local decodedLnurl=$(curl -sd "${data}" -H "Content-Type: application/json" lnurl:8000/api)
+  local decodedLnurl=$(exec_in_test_container curl -sd "${data}" -H "Content-Type: application/json" lnurl:8000/api)
   trace 3 "[decode_lnurl] decodedLnurl=${decodedLnurl}"
   local url=$(echo "${decodedLnurl}" | jq -r ".result")
   trace 3 "[decode_lnurl] url=${url}"
@@ -89,44 +104,40 @@ call_lnservice_withdraw_request() {
   local url=${1}
   trace 2 "[call_lnservice_withdraw_request] url=${url}"
 
-  local withdrawRequestResponse=$(curl -s ${url})
+  local withdrawRequestResponse=$(exec_in_test_container curl -s ${url})
   trace 2 "[call_lnservice_withdraw_request] withdrawRequestResponse=${withdrawRequestResponse}"
 
   echo "${withdrawRequestResponse}"
 }
 
 create_bolt11() {
-  trace 1 "\n[create_bolt11] ${BCyan}User creates bolt11 for the payment...${Color_Off}"
+  trace 2 "\n\n[create_bolt11] ${BCyan}User creates bolt11 for the payment...${Color_Off}\n"
 
   local msatoshi=${1}
-  trace 2 "[create_bolt11] msatoshi=${msatoshi}"
-  local label=${2}
-  trace 2 "[create_bolt11] label=${label}"
-  local desc=${3}
-  trace 2 "[create_bolt11] desc=${desc}"
+  trace 3 "[create_bolt11] msatoshi=${msatoshi}"
+  local desc=${2}
+  trace 3 "[create_bolt11] desc=${desc}"
 
-  local data='{"id":1,"jsonrpc": "2.0","method":"invoice","params":{"msatoshi":'${msatoshi}',"label":"'${label}'","description":"'${desc}'"}}'
-  trace 2 "[create_bolt11] data=${data}"
-  local invoice=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
-  trace 2 "[create_bolt11] invoice=${invoice}"
+  local invoice=$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli --lightning-dir=/.lightning invoice ${msatoshi} "${desc}" "${desc}")
+  trace 3 "[create_bolt11] invoice=${invoice}"
 
   echo "${invoice}"
 }
 
 get_invoice_status() {
-  trace 1 "\n[get_invoice_status] ${BCyan}Let's make sure the invoice is unpaid first...${Color_Off}"
+  trace 2 "\n\n[get_invoice_status] ${BCyan}Getting invoice status...${Color_Off}\n"
 
   local invoice=${1}
-  trace 2 "[get_invoice_status] invoice=${invoice}"
+  trace 3 "[get_invoice_status] invoice=${invoice}"
 
   local payment_hash=$(echo "${invoice}" | jq -r ".payment_hash")
-  trace 2 "[get_invoice_status] payment_hash=${payment_hash}"
-  local data='{"id":1,"jsonrpc": "2.0","method":"listinvoices","params":{"payment_hash":"'${payment_hash}'"}}'
-  trace 2 "[get_invoice_status] data=${data}"
-  local invoices=$(curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
-  trace 2 "[get_invoice_status] invoices=${invoices}"
+  trace 3 "[get_invoice_status] payment_hash=${payment_hash}"
+  local data='{"id":1,"jsonrpc":"2.0","method":"listinvoices","params":{"payment_hash":"'${payment_hash}'"}}'
+  trace 3 "[get_invoice_status] data=${data}"
+  local invoices=$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli --lightning-dir=/.lightning listinvoices -k payment_hash=${payment_hash})
+  trace 3 "[get_invoice_status] invoices=${invoices}"
   local status=$(echo "${invoices}" | jq -r ".invoices[0].status")
-  trace 2 "[get_invoice_status] status=${status}"
+  trace 3 "[get_invoice_status] status=${status}"
 
   echo "${status}"
 }
@@ -139,14 +150,14 @@ call_lnservice_withdraw() {
   local bolt11=${2}
   trace 2 "[call_lnservice_withdraw] bolt11=${bolt11}"
 
-  callback=$(echo "${withdrawRequestResponse}" | jq -r ".callback")
+  local callback=$(echo "${withdrawRequestResponse}" | jq -r ".callback")
   trace 2 "[call_lnservice_withdraw] callback=${callback}"
   k1=$(echo "${withdrawRequestResponse}" | jq -r ".k1")
   trace 2 "[call_lnservice_withdraw] k1=${k1}"
 
   trace 2 "\n[call_lnservice_withdraw] ${BCyan}User finally calls LN Service LNURL Withdraw...${Color_Off}"
-  trace 2 "url=${callback}?k1=${k1}\&pr=${bolt11}"
-  withdrawResponse=$(curl -s ${callback}?k1=${k1}\&pr=${bolt11})
+  trace 2 "[call_lnservice_withdraw] url=${callback}?k1=${k1}\&pr=${bolt11}"
+  withdrawResponse=$(exec_in_test_container curl -s ${callback}?k1=${k1}\&pr=${bolt11})
   trace 2 "[call_lnservice_withdraw] withdrawResponse=${withdrawResponse}"
 
   echo "${withdrawResponse}"
@@ -154,65 +165,72 @@ call_lnservice_withdraw() {
 
 TRACING=3
 
-trace 2 "${Color_Off}"
 date
 
-# Install needed packages
-trace 2 "\n${BCyan}Installing needed packages...${Color_Off}"
-apk add curl jq
+stop_test_container
+start_test_container
+
+trace 1 "\n\n[lnurl-withdraw-wallet] ${BCyan}Installing needed packages...${Color_Off}\n"
+exec_in_test_container_leave_lf apk add --update curl
 
 lnurl=${1}
-trace 2 "lnurl=${lnurl}"
+trace 2 "[lnurl-withdraw-wallet] lnurl=${lnurl}"
 bolt11=${2}
-trace 2 "bolt11=${bolt11}"
+trace 2 "[lnurl-withdraw-wallet] bolt11=${bolt11}"
 
 if [ "${lnurl}" = "createlnurl" ]; then
   # Initializing test variables
-  trace 2 "\n\n${BCyan}Initializing test variables...${Color_Off}\n"
+  trace 2 "\n\n[lnurl-withdraw-wallet] ${BCyan}Initializing test variables...${Color_Off}\n"
   # callbackservername="lnurl_withdraw_test"
   # callbackserverport="1111"
   # callbackurl="http://${callbackservername}:${callbackserverport}"
-  trace 3 "callbackurl=${callbackurl}"
+  trace 3 "[lnurl-withdraw-wallet] callbackurl=${callbackurl}"
 
   createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 600)
-  trace 3 "[fallback3] createLnurlWithdraw=${createLnurlWithdraw}"
+  trace 3 "[lnurl-withdraw-wallet] createLnurlWithdraw=${createLnurlWithdraw}"
   lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
-  trace 3 "[fallback3] lnurl=${lnurl}"
+  trace 3 "[lnurl-withdraw-wallet] lnurl=${lnurl}"
 else
   url=$(decode_lnurl "${lnurl}")
-  trace 2 "url=${url}"
+  trace 2 "[lnurl-withdraw-wallet] url=${url}"
 
   withdrawRequestResponse=$(call_lnservice_withdraw_request "${url}")
-  trace 2 "withdrawRequestResponse=${withdrawRequestResponse}"
+  trace 2 "[lnurl-withdraw-wallet] withdrawRequestResponse=${withdrawRequestResponse}"
 
   # {"status":"ERROR","reason":"Expired LNURL-Withdraw"}
   reason=$(echo "${withdrawRequestResponse}" | jq -r ".reason // empty")
 
   if [ -n "${reason}" ]; then
-    trace 1 "\n\nERROR!  Reason: ${reason}\n\n"
-    return 1
-  fi
+    trace 1 "\n\n[lnurl-withdraw-wallet] ERROR!  Reason: ${reason}\n\n"
+  else
+    msatoshi=$(echo "${withdrawRequestResponse}" | jq -r ".maxWithdrawable")
+    trace 2 "[lnurl-withdraw-wallet] msatoshi=${msatoshi}"
+    desc=$(echo "${withdrawRequestResponse}" | jq -r ".defaultDescription")
+    trace 2 "[lnurl-withdraw-wallet] desc=${desc}"
 
-  msatoshi=$(echo "${withdrawRequestResponse}" | jq -r ".maxWithdrawable")
-  trace 2 "msatoshi=${msatoshi}"
-  desc=$(echo "${withdrawRequestResponse}" | jq -r ".defaultDescription")
-  trace 2 "desc=${desc}"
+    if [ -z "${bolt11}" ]; then
+      invoice=$(create_bolt11 ${msatoshi} "${desc}")
+      trace 2 "[lnurl-withdraw-wallet] invoice=${invoice}"
+      bolt11=$(echo "${invoice}" | jq -r ".bolt11")
 
-  if [ -z "${bolt11}" ]; then
-    invoice=$(create_bolt11 ${msatoshi} "$RANDOM" "${desc}")
-    trace 2 "invoice=${invoice}"
-    bolt11=$(echo "${invoice}" | jq -r ".bolt11")
+      trace 2 "[lnurl-withdraw-wallet] bolt11=${bolt11}"
+    fi
 
-    trace 2 "bolt11=${bolt11}"
-  fi
+    withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
+    trace 2 "[lnurl-withdraw-wallet] withdrawResponse=${withdrawResponse}"
 
-  withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
-  trace 2 "withdrawResponse=${withdrawResponse}"
+    reason=$(echo "${withdrawResponse}" | jq -r ".reason // empty")
 
-  reason=$(echo "${withdrawResponse}" | jq -r ".reason // empty")
-
-  if [ -n "${reason}" ]; then
-    trace 1 "\n\nERROR!  Reason: ${reason}\n\n"
-    return 1
+    if [ -n "${reason}" ]; then
+      trace 1 "\n\n[lnurl-withdraw-wallet] ERROR!  Reason: ${reason}\n\n"
+    fi
   fi
 fi
+
+trace 1 "\n\n[lnurl-withdraw-wallet] ${BCyan}Tearing down...${Color_Off}\n"
+
+stop_test_container
+
+date
+
+trace 1 "\n\n[lnurl-withdraw-wallet] ${BCyan}See ya!${Color_Off}\n"

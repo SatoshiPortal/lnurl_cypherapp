@@ -243,7 +243,7 @@ call_lnservice_withdraw_request() {
   local url=${1}
   trace 2 "[call_lnservice_withdraw_request] url=${url}"
 
-  local withdrawRequestResponse=$(exec_in_test_container curl -s ${url})
+  local withdrawRequestResponse=$(exec_in_test_container curl -sk ${url})
   trace 2 "[call_lnservice_withdraw_request] withdrawRequestResponse=${withdrawRequestResponse}"
 
   echo "${withdrawRequestResponse}"
@@ -296,7 +296,7 @@ call_lnservice_withdraw() {
 
   trace 2 "\n[call_lnservice_withdraw] ${BCyan}User finally calls LN Service LNURL Withdraw...${Color_Off}"
   trace 2 "[call_lnservice_withdraw] url=${callback}?k1=${k1}\&pr=${bolt11}"
-  withdrawResponse=$(exec_in_test_container curl -s ${callback}?k1=${k1}\&pr=${bolt11})
+  withdrawResponse=$(exec_in_test_container curl -sk ${callback}?k1=${k1}\&pr=${bolt11})
   trace 2 "[call_lnservice_withdraw] withdrawResponse=${withdrawResponse}"
 
   echo "${withdrawResponse}"
@@ -439,7 +439,7 @@ expired2() {
   local callbackurl=${1}
 
   # Service creates LNURL Withdraw
-  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 5)
+  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 10)
   trace 3 "[expired2] createLnurlWithdraw=${createLnurlWithdraw}"
   local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
   trace 3 "lnurl=${lnurl}"
@@ -472,8 +472,8 @@ expired2() {
   local bolt11=$(echo ${invoice} | jq -r ".bolt11")
   trace 3 "[expired2] bolt11=${bolt11}"
 
-  trace 3 "[expired2] Sleeping 5 seconds..."
-  sleep 5
+  trace 3 "[expired2] Sleeping 10 seconds..."
+  sleep 10
 
   # User calls LN Service LNURL Withdraw
   local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
@@ -502,7 +502,7 @@ deleted1() {
   local callbackurl=${1}
 
   # Service creates LNURL Withdraw
-  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 0)
+  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 10)
   trace 3 "[deleted1] createLnurlWithdraw=${createLnurlWithdraw}"
   local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
   trace 3 "lnurl=${lnurl}"
@@ -578,7 +578,7 @@ deleted2() {
   local callbackurl=${1}
 
   # Service creates LNURL Withdraw
-  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 5)
+  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 10)
   trace 3 "[deleted2] createLnurlWithdraw=${createLnurlWithdraw}"
   local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
   trace 3 "lnurl=${lnurl}"

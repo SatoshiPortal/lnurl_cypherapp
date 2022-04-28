@@ -89,8 +89,12 @@ class LnurlDBPrisma {
     return lw as LnurlWithdrawEntity;
   }
 
-  async getNonCalledbackLnurlWithdraws(): Promise<LnurlWithdrawEntity[]> {
-    const lws = await this._db?.lnurlWithdrawEntity.findMany({
+  async getNonCalledbackLnurlWithdraws(lnurlWithdrawId?: number): Promise<LnurlWithdrawEntity[]> {
+
+    // If there's a lnurlWithdrawId as arg, let's add it to the where clause!
+
+    let lws;
+    let whereClause = {
       where: {
         deleted: false,
         webhookUrl: { not: null },
@@ -111,7 +115,15 @@ class LnurlDBPrisma {
           },
         ],
       },
-    });
+    }
+
+    if (lnurlWithdrawId) {
+      whereClause.where = Object.assign(whereClause.where, { lnurlWithdrawId });
+    }
+
+    // logger.debug("LnurlDBPrisma.getNonCalledbackLnurlWithdraws, whereClause=", whereClause);
+
+    lws = await this._db?.lnurlWithdrawEntity.findMany(whereClause);
 
     return lws as LnurlWithdrawEntity[];
   }

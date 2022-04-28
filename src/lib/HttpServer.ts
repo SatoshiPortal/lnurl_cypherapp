@@ -193,8 +193,8 @@ class HttpServer {
 
     // LN Service LNURL Withdraw Request
     this._httpServer.get(
-      this._lnurlConfig.LN_SERVICE_CTX +
-        this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX,
+      // this._lnurlConfig.LN_SERVICE_CTX +
+      this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX,
       async (req, res) => {
         logger.info(
           this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX + ":",
@@ -215,8 +215,8 @@ class HttpServer {
 
     // LN Service LNURL Withdraw
     this._httpServer.get(
-      this._lnurlConfig.LN_SERVICE_CTX +
-        this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
+      // this._lnurlConfig.LN_SERVICE_CTX +
+      this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
       async (req, res) => {
         logger.info(this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX + ":", req.query);
 

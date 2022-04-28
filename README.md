@@ -30,7 +30,7 @@ Request:
   externalId?: string;
   msatoshi: number;
   description?: string;
-  expiration?: Date;
+  expiresAt?: Date;
   webhookUrl?: string;
   btcFallbackAddress?: string;
   batchFallback?: boolean;
@@ -46,7 +46,7 @@ Response:
     externalId: string | null;
     msatoshi: number;
     description: string | null;
-    expiration: Date | null;
+    expiresAt: Date | null;
     secretToken: string;
     webhookUrl: string | null;
     calledback: boolean;
@@ -92,7 +92,7 @@ Response:
     externalId: string | null;
     msatoshi: number;
     description: string | null;
-    expiration: Date | null;
+    expiresAt: Date | null;
     secretToken: string;
     webhookUrl: string | null;
     calledback: boolean;
@@ -138,7 +138,7 @@ Response:
     externalId: string | null;
     msatoshi: number;
     description: string | null;
-    expiration: Date | null;
+    expiresAt: Date | null;
     secretToken: string;
     webhookUrl: string | null;
     calledback: boolean;
@@ -224,7 +224,7 @@ Response:
     externalId: string | null;
     msatoshi: number;
     description: string | null;
-    expiration: Date | null;
+    expiresAt: Date | null;
     secretToken: string;
     webhookUrl: string | null;
     calledback: boolean;
@@ -401,58 +401,4 @@ Response:
     }
   }
 }
-```
-
-=========================
-
-## Temp dev notes
-
-```bash
-DOCKER_BUILDKIT=0 docker build -t lnurl .
-docker run --rm -it -v "$PWD:/lnurl" --entrypoint ash bff4412e444c
-npm install
-
-docker run --rm -it --name lnurl -v "$PWD:/lnurl" -v "$PWD/cypherapps/data:/lnurl/data" -v "$PWD/cypherapps/data/logs:/lnurl/logs" --entrypoint ash lnurl
-npm run build
-npm run start
-
---
-
-docker exec -it lnurl ash
-/lnurl # apk add curl
-/lnurl # curl -d '{"id":0,"method":"getConfig","params":[]}' -H "Content-Type: application/json" localhost:8000/api
-{"id":0,"result":{"LOG":"DEBUG","BASE_DIR":"/lnurl","DATA_DIR":"data","DB_NAME":"lnurl.sqlite","URL_SERVER":"http://lnurl","URL_PORT":8000,"URL_CTX_WEBHOOKS":"webhooks","SESSION_TIMEOUT":600,"CN_URL":"https://gatekeeper:2009/v0","CN_API_ID":"003","CN_API_KEY":"39b83c35972aeb81a242bfe189dc0a22da5ac6cbb64072b492f2d46519a97618"}}
-
---
-
-sqlite3 data/lnurl.sqlite -header "select * from lnurl_withdraw"
-
-curl -d '{"id":0,"method":"createLnurlWithdraw","params":{"msatoshi":0.01,"description":"desc02","expiration":"2021-07-15T12:12:23.112Z","secretToken":"abc02","webhookUrl":"https://webhookUrl01"}}' -H "Content-Type: application/json" localhost:8000/api
-{"id":0,"result":{"msatoshi":0.01,"description":"desc01","expiration":"2021-07-15T12:12:23.112Z","secretToken":"abc01","webhookUrl":"https://webhookUrl01","lnurl":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K","withdrawnDetails":null,"withdrawnTimestamp":null,"active":1,"lnurlWithdrawId":1,"createdAt":"2021-07-15 19:42:06","updatedAt":"2021-07-15 19:42:06"}}
-
-sqlite3 data/lnurl.sqlite -header "select * from lnurl_withdraw"
-id|msatoshi|description|expiration|secret_token|webhook_url|lnurl|withdrawn_details|withdrawn_ts|active|created_ts|updated_ts
-1|0.01|desc01|2021-07-15 12:12|abc01|https://webhookUrl01|LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXYH8P25K|||1|2021-07-15 19:42:06|2021-07-15 19:42:06
-
-curl -d '{"id":0,"method":"decodeBech32","params":{"s":"LNURL1DP68GUP69UHJUMMWD9HKUW3CXQHKCMN4WFKZ7AMFW35XGUNPWAFX2UT4V4EHG0MN84SKYCESXGXE8Q93"}}' -H "Content-Type: application/json" localhost:8000/api
-{"id":0,"result":"http://.onion:80/lnurl/withdrawRequest?s=abc01"}
-
-curl localhost:8000/withdrawRequest?s=abc02
-{"tag":"withdrawRequest","callback":"http://.onion:80/lnurl/withdraw","k1":"abc01","defaultDescription":"desc01","minWithdrawable":0.01,"maxWithdrawable":0.01}
-
-curl localhost:8000/withdraw?k1=abc03\&pr=lnbcrt123456780p1ps0pf5ypp5lfskvgsdef4hpx0lndqe69ypu0rxl5msndkcnlm8v6l5p75xzd6sdq2v3jhxcesxvxqyjw5qcqp2sp5f42mrc40eh4ntmqhgxvk74m2w3q25fx9m8d9wn6d20ahtfy6ju8q9qy9qsqw4khcr86dlg66nz3ds6nhxpsw9z0ugxfkequtyf8qv7q6gdvztdhsfp36uazsz35xp37lfmt0tqsssrew0wr0htfdkhjpwdagnzvc6qp2ynxvd
-{"status":"OK"}
-
-==================
-
-docker run --rm -it --name lnurl -v "$PWD:/lnurl" -v "$PWD/cypherapps/data:/lnurl/data" -v "$PWD/cypherapps/data/logs:/lnurl/logs" -v "/Users/kexkey/dev/cn-dev/dist/cyphernode/gatekeeper/certs/cert.pem:/lnurl/cert.pem:ro" --network cyphernodeappsnet --entrypoint ash lnurl
-npm run build
-npm run start
-
-DEBUG:
-docker run --rm -it --name lnurl -v "$PWD:/lnurl" -v "$PWD/cypherapps/data:/lnurl/data" -v "$PWD/cypherapps/data/logs:/lnurl/logs" -v "/Users/kexkey/dev/cn-dev/dist/cyphernode/gatekeeper/certs/cert.pem:/lnurl/cert.pem:ro" -p 9229:9229 -p 8000:8000 --network cyphernodeappsnet --entrypoint ash lnurl 
-
-npx prisma migrate reset
-npx prisma generate
-npx prisma migrate dev
 ```

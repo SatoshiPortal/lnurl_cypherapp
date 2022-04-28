@@ -1,12 +1,18 @@
 version: "3"
 
+# This is how you can generate a random authentication key:
+# server:~$ dd if=/dev/urandom bs=32 count=1 2> /dev/null | xxd -ps -c 32
+# 82b5313656818b70d900c32c3bf8ea502705048392f96a4c4f65d0e270d576fe
+# server:~$ htpasswd -bnB yourapiuser '82b5313656818b70d900c32c3bf8ea502705048392f96a4c4f65d0e270d576fe' | sed 's/\$/\$\$/g'
+# yourapiuser:$$2y$$05$$M0vR2UtI.I5JlV9Ha3j/buXwfXuyG6QqnjSBgSkkJomGaynIS1lPO
+
 services:
   lnurl:
     environment:
       - "TRACING=1"
       - "CYPHERNODE_URL=https://gatekeeper:${GATEKEEPER_PORT}"
     image: cyphernode/lnurl:v0.1.0
-    entrypoint: ["npm", "run", "start:dev"]
+    entrypoint: [ "npm", "run", "start:dev" ]
     volumes:
       - "$APP_SCRIPT_PATH/data:/lnurl/data"
       - "$GATEKEEPER_DATAPATH/certs/cert.pem:/lnurl/cert.pem:ro"
@@ -15,24 +21,88 @@ services:
       - cyphernodeappsnet
     restart: always
     labels:
-      - "traefik.docker.network=cyphernodeappsnet"
-# PathPrefix won't be stripped because we don't want outsiders to access /api, only /lnurl/...
-      - "traefik.frontend.rule=PathPrefix:/lnurl"
-      - "traefik.frontend.passHostHeader=true"
-      - "traefik.enable=true"
-      - "traefik.port=8000"
-# Don't secure the PathPrefix /lnurl
-#      - "traefik.frontend.auth.basic.users=<username:bcrypt>"
+      - traefik.enable=true
+      - traefik.docker.network=cyphernodeappsnet
+
+      - traefik.http.routers.lnurl-api.rule=PathPrefix(`/lnurl/api`)
+      - traefik.http.routers.lnurl-api.entrypoints=websecure
+      - traefik.http.routers.lnurl-api.tls=true
+      - traefik.http.routers.lnurl-api.service=lnurl
+      - traefik.http.routers.lnurl-api.middlewares=lnurl-api-redirectregex@docker,lnurl-api-auth@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
+
+      # - traefik.http.routers.lnurl.rule=Host(`lnurl.yourdomain.com`)
+      # PathPrefix won't be stripped because we don't want outsiders to access /api, only /lnurl/...
+      - traefik.http.routers.lnurl.rule=PathPrefix(`/lnurl`)
+      - traefik.http.routers.lnurl.entrypoints=websecure
+      - traefik.http.routers.lnurl.tls=true
+      - traefik.http.routers.lnurl.service=lnurl
+      - traefik.http.routers.lnurl.middlewares=lnurl-redirectregex@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
+      # - traefik.http.routers.lnurl.middlewares=lnurl-auth@docker,lnurl-allowedhosts@docker
+
+      # PathPrefix won't be stripped because we don't want outsiders to access /api, only /lnurl/...
+      - traefik.http.routers.lnurl-onion.rule=PathPrefix(`/lnurl`)
+      - traefik.http.routers.lnurl-onion.entrypoints=onion
+      - traefik.http.routers.lnurl-onion.service=lnurl
+      - traefik.http.routers.lnurl-onion.middlewares=lnurl-redirectregex@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
+
+      - traefik.http.services.lnurl.loadbalancer.server.port=8000
+      - traefik.http.services.lnurl.loadbalancer.passHostHeader=true
+
+      # yourapiuser:82b5313656818b70d900c32c3bf8ea502705048392f96a4c4f65d0e270d576fe
+      - traefik.http.middlewares.lnurl-api-auth.basicauth.users=yourapiuser:$$2y$$05$$M0vR2UtI.I5JlV9Ha3j/buXwfXuyG6QqnjSBgSkkJomGaynIS1lPO"
+      # - traefik.http.middlewares.lnurl-allowedhosts.headers.allowedHosts=lnurl.yourdomain.com
+      - traefik.http.middlewares.lnurl-stripprefix.stripprefix.prefixes=/lnurl,/lnurl/
+      - traefik.http.middlewares.lnurl-redirectregex.redirectregex.regex=^(.*)/lnurl$$
+      - traefik.http.middlewares.lnurl-redirectregex.redirectregex.replacement=$$1/lnurl/
+      - traefik.http.middlewares.lnurl-redirectregex.redirectregex.permanent=true
+      - traefik.http.middlewares.lnurl-api-redirectregex.redirectregex.regex=^(.*)/lnurl/api$$
+      - traefik.http.middlewares.lnurl-api-redirectregex.redirectregex.replacement=$$1/lnurl/api/
+      - traefik.http.middlewares.lnurl-api-redirectregex.redirectregex.permanent=true
+      - traefik.http.middlewares.lnurl-ratelimit.ratelimit.sourcecriterion.requesthost=true
+      - traefik.http.middlewares.lnurl-ratelimit.ratelimit.period=1s
+      - traefik.http.middlewares.lnurl-ratelimit.ratelimit.average=1
+      - traefik.http.middlewares.lnurl-ratelimit.ratelimit.burst=2
     deploy:
       labels:
-        - "traefik.docker.network=cyphernodeappsnet"
-# PathPrefix won't be stripped because we don't want outsiders to access /api, only /lnurl/...
-        - "traefik.frontend.rule=PathPrefix:/lnurl"
-        - "traefik.frontend.passHostHeader=true"
-        - "traefik.enable=true"
-        - "traefik.port=8000"
-# Don't secure the PathPrefix /lnurl
-#        - "traefik.frontend.auth.basic.users=<username:bcrypt>"
+        - traefik.enable=true
+        - traefik.docker.network=cyphernodeappsnet
+
+        - traefik.http.routers.lnurl-api.rule=PathPrefix(`/lnurl/api`)
+        - traefik.http.routers.lnurl-api.entrypoints=websecure
+        - traefik.http.routers.lnurl-api.tls=true
+        - traefik.http.routers.lnurl-api.service=lnurl
+        - traefik.http.routers.lnurl-api.middlewares=lnurl-api-redirectregex@docker,lnurl-api-auth@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
+
+        # - traefik.http.routers.lnurl.rule=Host(`lnurl.yourdomain.com`)
+        - traefik.http.routers.lnurl.rule=PathPrefix(`/lnurl`)
+        - traefik.http.routers.lnurl.entrypoints=websecure
+        - traefik.http.routers.lnurl.tls=true
+        - traefik.http.routers.lnurl.service=lnurl
+        - traefik.http.routers.lnurl.middlewares=lnurl-redirectregex@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
+        # - traefik.http.routers.lnurl.middlewares=lnurl-auth@docker,lnurl-allowedhosts@docker
+
+        - traefik.http.routers.lnurl-onion.rule=PathPrefix(`/lnurl`)
+        - traefik.http.routers.lnurl-onion.entrypoints=onion
+        - traefik.http.routers.lnurl-onion.service=lnurl
+        - traefik.http.routers.lnurl-onion.middlewares=lnurl-redirectregex@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
+
+        - traefik.http.services.lnurl.loadbalancer.server.port=8000
+        - traefik.http.services.lnurl.loadbalancer.passHostHeader=true
+
+        # yourapiuser:82b5313656818b70d900c32c3bf8ea502705048392f96a4c4f65d0e270d576fe
+        - traefik.http.middlewares.lnurl-api-auth.basicauth.users=yourapiuser:$$2y$$05$$M0vR2UtI.I5JlV9Ha3j/buXwfXuyG6QqnjSBgSkkJomGaynIS1lPO"
+        # - traefik.http.middlewares.lnurl-allowedhosts.headers.allowedHosts=lnurl.yourdomain.com
+        - traefik.http.middlewares.lnurl-stripprefix.stripprefix.prefixes=/lnurl,/lnurl/
+        - traefik.http.middlewares.lnurl-redirectregex.redirectregex.regex=^(.*)/lnurl$$
+        - traefik.http.middlewares.lnurl-redirectregex.redirectregex.replacement=$$1/lnurl/
+        - traefik.http.middlewares.lnurl-redirectregex.redirectregex.permanent=true
+        - traefik.http.middlewares.lnurl-api-redirectregex.redirectregex.regex=^(.*)/lnurl/api$$
+        - traefik.http.middlewares.lnurl-api-redirectregex.redirectregex.replacement=$$1/lnurl/api/
+        - traefik.http.middlewares.lnurl-api-redirectregex.redirectregex.permanent=true
+        - traefik.http.middlewares.lnurl-ratelimit.ratelimit.sourcecriterion.requesthost=true
+        - traefik.http.middlewares.lnurl-ratelimit.ratelimit.period=1s
+        - traefik.http.middlewares.lnurl-ratelimit.ratelimit.average=1
+        - traefik.http.middlewares.lnurl-ratelimit.ratelimit.burst=2
       replicas: 1
       placement:
         constraints:
@@ -41,7 +111,7 @@ services:
         condition: "any"
         delay: 1s
       update_config:
-        parallelism: 1    
+        parallelism: 1
 networks:
   cyphernodeappsnet:
     external: true

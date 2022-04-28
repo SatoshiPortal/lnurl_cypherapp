@@ -579,9 +579,11 @@ class LnurlWithdraw {
         // As soon as there's a "success" field in attemps, payment succeeded!
         // If the last attempt doesn't have a "failure" field, it means there's a pending attempt
         // If the last attempt has a "failure" field, it means payment failed.
+        let nbAttempts;
         let success = false;
         let failure = null;
         paystatus.result.pay.forEach((pay) => {
+          nbAttempts = 0;
           pay.attempts.forEach((attempt) => {
             if (attempt.success) {
               success = true;
@@ -592,6 +594,20 @@ class LnurlWithdraw {
               failure = false;
             }
           });
+
+          // The result of paystatus can get quite big when trying
+          // to find a route (several MB).  Let's save paystatus result only
+          // if not too big to avoid filling up disk space with
+          // database + logging of the row.
+          nbAttempts += pay.attempts.length;
+          if (nbAttempts > 1000) {
+            logger.debug(
+              "LnurlWithdraw.lnFetchPaymentStatus, paystatus.result is too large, truncating content..."
+            );
+            // Let's keep two attempts, and put a message in the second one...
+            pay.attempts.splice(2);
+            pay.attempts[1].failure = { message: "attempts array truncated by lnurl cypherapp" };
+          }
         });
 
         if (success) {
@@ -756,7 +772,8 @@ class LnurlWithdraw {
 
         let lnurlWithdrawEntitys;
         if (lnurlWithdrawEntity) {
-          lnurlWithdrawEntitys = [lnurlWithdrawEntity];
+          // Let's take the latest on from database, just in case passed object has stale data
+          lnurlWithdrawEntitys = await this._lnurlDB.getNonCalledbackLnurlWithdraws(lnurlWithdrawEntity.lnurlWithdrawId);
         } else {
           lnurlWithdrawEntitys = await this._lnurlDB.getNonCalledbackLnurlWithdraws();
         }
@@ -900,7 +917,7 @@ class LnurlWithdraw {
             } else if (paymentStatus.paymentStatus !== "failed") {
               logger.debug(
                 "LnurlWithdraw.processFallbacks: LnurlWithdraw payment already " +
-                  paymentStatus.paymentStatus
+                paymentStatus.paymentStatus
               );
               proceedToFallback = false;
 
@@ -1082,7 +1099,7 @@ class LnurlWithdraw {
                   if (paymentStatus.paymentStatus !== "failed") {
                     logger.debug(
                       "LnurlWithdraw.forceFallback, LnurlWithdraw payment already " +
-                        paymentStatus.paymentStatus
+                      paymentStatus.paymentStatus
                     );
 
                     response.error = {
