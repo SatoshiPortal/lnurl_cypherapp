@@ -545,12 +545,16 @@ class LnurlWithdraw {
       // Error, should not happen, something's wrong, let's get out of here
       logger.debug("LnurlWithdraw.lnFetchPaymentStatus, lnListPays errored...");
     } else if (resp.result && resp.result.pays && resp.result.pays.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      paymentStatus = (resp.result.pays[0] as any).status;
-      logger.debug(
-        "LnurlWithdraw.lnFetchPaymentStatus, paymentStatus =",
-        paymentStatus
-      );
+      const nonfailedpay = resp.result.pays.find((obj) => {
+        return ((obj as any).status === "complete" || (obj as any).status === "pending");
+      })
+      logger.debug("LnurlWithdraw.lnFetchPaymentStatus, nonfailedpay =", nonfailedpay);
+
+      if (nonfailedpay !== undefined) {
+        paymentStatus = (nonfailedpay as any).status;
+      } else {
+        paymentStatus = "failed";
+      }
 
       result = resp.result;
     } else {
