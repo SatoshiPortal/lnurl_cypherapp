@@ -257,7 +257,7 @@ create_bolt11() {
   local desc=${2}
   trace 3 "[create_bolt11] desc=${desc}"
 
-  local invoice=$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli --lightning-dir=/.lightning invoice ${msatoshi} "${desc}" "${desc}")
+  local invoice=$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli invoice ${msatoshi} "${desc}" "${desc}")
   trace 3 "[create_bolt11] invoice=${invoice}"
 
   echo "${invoice}"
@@ -273,7 +273,7 @@ get_invoice_status() {
   trace 3 "[get_invoice_status] payment_hash=${payment_hash}"
   local data='{"id":1,"jsonrpc":"2.0","method":"listinvoices","params":{"payment_hash":"'${payment_hash}'"}}'
   trace 3 "[get_invoice_status] data=${data}"
-  local invoices=$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli --lightning-dir=/.lightning listinvoices -k payment_hash=${payment_hash})
+  local invoices=$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli listinvoices -k payment_hash=${payment_hash})
   trace 3 "[get_invoice_status] invoices=${invoices}"
   local status=$(echo "${invoices}" | jq -r ".invoices[0].status")
   trace 3 "[get_invoice_status] status=${status}"
@@ -356,7 +356,7 @@ happy_path() {
 
   start_callback_server
 
-  trace 2 "\n\n[fallback2] ${BPurple}Waiting for the LNURL payment callback...\n${Color_Off}"
+  trace 2 "\n\n[happy_path] ${BPurple}Waiting for the LNURL payment callback...\n${Color_Off}"
 
   # User calls LN Service LNURL Withdraw
   local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
