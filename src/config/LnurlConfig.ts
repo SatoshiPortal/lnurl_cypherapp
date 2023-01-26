@@ -17,6 +17,9 @@ export default interface LnurlConfig {
   LN_SERVICE_CTX: string;
   LN_SERVICE_WITHDRAW_REQUEST_CTX: string;
   LN_SERVICE_WITHDRAW_CTX: string;
+  LN_SERVICE_PAY_CTX: string;
+  LN_SERVICE_PAY_REQUEST_CTX: string;
+  LN_SERVICE_PAY_CB_CTX: string;
   RETRY_WEBHOOKS_TIMEOUT: number;
   CHECK_EXPIRATION_TIMEOUT: number;
 }

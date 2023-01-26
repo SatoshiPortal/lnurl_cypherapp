@@ -17,6 +17,9 @@
     "LN_SERVICE_CTX": "/lnurl",
     "LN_SERVICE_WITHDRAW_REQUEST_CTX": "/withdrawRequest",
     "LN_SERVICE_WITHDRAW_CTX": "/withdraw",
+    "LN_SERVICE_PAY_CTX": "/pay",
+    "LN_SERVICE_PAY_REQUEST_CTX": "/payRequest",
+    "LN_SERVICE_PAY_CB_CTX": "/payReqCallback",
     "RETRY_WEBHOOKS_TIMEOUT": 1,
     "CHECK_EXPIRATION_TIMEOUT": 1
 }
