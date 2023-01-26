@@ -40,3 +40,36 @@ model LnurlWithdrawEntity {
   @@index([bolt11])
   @@index([btcFallbackAddress])
 }
+
+model LnurlPayEntity {
+  lnurlPayId        Int       @id @default(autoincrement())
+  externalId        String   @unique
+  minMsatoshi       Int       @default(1)
+  maxMsatoshi       Int       @default(1)
+  description       String?   
+  webhookUrl        String?
+  lnurl             String
+  requests          LnurlPayRequestEntity[]
+  deleted           Boolean   @default(false)
+  createdTs         DateTime  @default(now())
+  updatedTs         DateTime  @updatedAt
+
+  @@index([externalId])
+}
+
+model LnurlPayRequestEntity {
+  lnurlPayRequestId   Int   @id @default(autoincrement())
+  lnurlPay            LnurlPayEntity @relation(fields: [lnurlPayEntityId], references: [lnurlPayId])
+  lnurlPayEntityId    Int
+  bolt11Label         String @unique
+  msatoshi            Int
+  bolt11              String?
+  metadata            String?
+  paid                Boolean   @default(false)
+  paidCalledbackTs    DateTime?
+  deleted             Boolean   @default(false)
+  createdTs           DateTime  @default(now())
+  updatedTs           DateTime  @updatedAt
+
+  @@index([bolt11])
+}

@@ -19,6 +19,8 @@ import IRespLnPay from "../types/cyphernode/IRespLnPay";
 import IRespLnListPays from "../types/cyphernode/IRespLnListPays";
 import IReqLnListPays from "../types/cyphernode/IReqLnListPays";
 import IRespLnPayStatus from "../types/cyphernode/IRespLnPayStatus";
+import IReqLnCreate from "../types/cyphernode/IReqLnCreate";
+import IRespLnCreate from "../types/cyphernode/IRespLnCreate";
 
 class CyphernodeClient {
   private baseURL: string;
@@ -756,6 +758,43 @@ class CyphernodeClient {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as IResponseError<any>,
       } as IRespLnPayStatus;
+    }
+    return result;
+  }
+
+  async lnCreate(lnCreate: IReqLnCreate): Promise<IRespLnCreate> {
+    // POST http://192.168.111.152:8080/ln_create_invoice
+    // BODY {"msatoshi":10000,"label":"1234", "description":"Bitcoin Outlet order #7082", "expiry":900}
+
+    // args:
+    // - msatoshi, required, amount we want to recieve
+    // - label, required, unique label to identify the bolt11 invoice
+    // - description, required, description to be encoded in the bolt11 invoice
+    // - expiry, optional, expiry time in seconds
+    // - callbackUrl, optional, callback for invoice updates / payment
+    //
+    // Example of successful result:
+    //
+    // {
+    //   "payment_hash": "fd27edf261d4b089c3478dece4f2c92c8c68db7be3999e89d452d39c083ad00f",
+    //   "expires_at": 1536593926,
+    //   "bolt11": "lntb100n1pdedryzpp5l5n7munp6jcgns683hkwfukf9jxx3kmmuwveazw52tfeczp66q8sdqagfukcmrnyphhyer9wgszxvfsxc6rjxqzuycqp2ak5feh7x7wkkt76uc5ptzcv90jhzhs5swzefv9344hnv74c25dvsstx7l24y46sx5tnkenu480pe06wtly2h5lrj63vszzgrxt4grkcqcltquj"
+    // }
+
+    logger.info("CyphernodeClient.lnCreate:", lnCreate);
+
+    let result: IRespLnCreate;
+    const response = await this._post("/ln_create_invoice", lnCreate);
+    if (response.status >= 200 && response.status < 400) {
+      result = { result: response.data };
+    } else {
+      result = {
+        error: {
+          code: ErrorCodes.InternalError,
+          message: response.data.message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as IResponseError<any>,
+      } as IRespLnCreate;
     }
     return result;
   }

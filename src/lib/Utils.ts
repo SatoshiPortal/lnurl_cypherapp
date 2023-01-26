@@ -3,19 +3,26 @@ import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import { bech32 } from "bech32";
 
 class Utils {
-  static async post(
+  static async request(
+    method: "post" | "get",
     url: string,
-    postdata: unknown,
+    postdata?: unknown,
     addedOptions?: unknown
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> {
-    logger.info("Utils.post", url, JSON.stringify(postdata), addedOptions);
+    logger.info(
+      "Utils.request",
+      method,
+      url,
+      JSON.stringify(postdata),
+      addedOptions
+    );
 
     let configs: AxiosRequestConfig = {
       baseURL: url,
-      method: "post",
-      data: postdata,
+      method,
     };
+    if (postdata) configs.data = postdata;
     if (addedOptions) {
       configs = Object.assign(configs, addedOptions);
     }
@@ -23,7 +30,7 @@ class Utils {
     try {
       const response = await axios.request(configs);
       logger.debug(
-        "Utils.post :: response.data =",
+        "Utils.request :: response.data =",
         JSON.stringify(response.data)
       );
 
@@ -36,15 +43,15 @@ class Utils {
           // The request was made and the server responded with a status code
           // that falls out of the range of 2xx
           logger.info(
-            "Utils.post :: error.response.data =",
+            "Utils.request :: error.response.data =",
             JSON.stringify(error.response.data)
           );
           logger.info(
-            "Utils.post :: error.response.status =",
+            "Utils.request :: error.response.status =",
             error.response.status
           );
           logger.info(
-            "Utils.post :: error.response.headers =",
+            "Utils.request :: error.response.headers =",
             error.response.headers
           );
 
@@ -53,12 +60,12 @@ class Utils {
           // The request was made but no response was received
           // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
           // http.ClientRequest in node.js
-          logger.info("Utils.post :: error.message =", error.message);
+          logger.info("Utils.request :: error.message =", error.message);
 
           return { status: -1, data: error.message };
         } else {
           // Something happened in setting up the request that triggered an Error
-          logger.info("Utils.post :: Error:", error.message);
+          logger.info("Utils.request :: Error:", error.message);
 
           return { status: -2, data: error.message };
         }
@@ -67,6 +74,20 @@ class Utils {
         return { status: -2, data: (err as any).message };
       }
     }
+  }
+
+  static post(
+    url: string,
+    postdata?: unknown,
+    addedOptions?: unknown
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Promise<any> {
+    return Utils.request("post", url, postdata, addedOptions);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  static get(url: string, addedOptions?: unknown): Promise<any> {
+    return Utils.request("get", url, undefined, addedOptions);
   }
 
   static async encodeBech32(str: string): Promise<string> {
