@@ -1,7 +1,13 @@
 import logger from "./Log2File";
 import path from "path";
 import LnurlConfig from "../config/LnurlConfig";
-import { LnurlWithdrawEntity, PrismaClient } from "@prisma/client";
+import {
+  LnurlPayEntity,
+  LnurlPayRequestEntity,
+  LnurlWithdrawEntity,
+  PrismaClient,
+} from "@prisma/client";
+import { SaveLnurlPayRequestWhere } from "../types/SaveLnurlPayRequestWhere";
 
 class LnurlDBPrisma {
   private _db?: PrismaClient;
@@ -143,6 +149,81 @@ class LnurlDBPrisma {
     });
 
     return lws as LnurlWithdrawEntity[];
+  }
+
+  async saveLnurlPay(lnurlPayEntity: LnurlPayEntity): Promise<LnurlPayEntity> {
+    const lw = await this._db?.lnurlPayEntity.upsert({
+      where: { externalId: lnurlPayEntity.externalId },
+      update: lnurlPayEntity,
+      create: lnurlPayEntity,
+    });
+
+    return lw as LnurlPayEntity;
+  }
+
+  async getLnurlPayById(lnurlPayId: number): Promise<LnurlPayEntity> {
+    const lw = await this._db?.lnurlPayEntity.findUnique({
+      where: { lnurlPayId: lnurlPayId },
+    });
+
+    return lw as LnurlPayEntity;
+  }
+
+  async getLnurlPayByExternalId(externalId: string): Promise<LnurlPayEntity> {
+    const lw = await this._db?.lnurlPayEntity.findUnique({
+      where: { externalId },
+    });
+
+    return lw as LnurlPayEntity;
+  }
+
+  async saveLnurlPayRequest(
+    lnurlPayRequestEntity: LnurlPayRequestEntity
+  ): Promise<LnurlPayRequestEntity> {
+    const where: SaveLnurlPayRequestWhere = {};
+    if (lnurlPayRequestEntity.lnurlPayRequestId) {
+      where.lnurlPayRequestId = lnurlPayRequestEntity.lnurlPayRequestId;
+    } else {
+      where.bolt11Label = lnurlPayRequestEntity.bolt11Label;
+    }
+
+    const lw = await this._db?.lnurlPayRequestEntity.upsert({
+      where,
+      update: lnurlPayRequestEntity,
+      create: lnurlPayRequestEntity,
+    });
+
+    return lw as LnurlPayRequestEntity;
+  }
+
+  async getLnurlPayRequestById(
+    lnurlPayRequestId: number
+  ): Promise<LnurlPayRequestEntity> {
+    const lw = await this._db?.lnurlPayRequestEntity.findUnique({
+      where: { lnurlPayRequestId: lnurlPayRequestId },
+    });
+
+    return lw as LnurlPayRequestEntity;
+  }
+
+  async getLnurlPayRequestByLabel(
+    bolt11Label: string
+  ): Promise<LnurlPayRequestEntity> {
+    const lw = await this._db?.lnurlPayRequestEntity.findUnique({
+      where: { bolt11Label },
+    });
+
+    return lw as LnurlPayRequestEntity;
+  }
+
+  async getLnurlPayRequestByPayId(
+    lnurlPayId: number
+  ): Promise<LnurlPayRequestEntity[]> {
+    const lw = await this._db?.lnurlPayRequestEntity.findMany({
+      where: { lnurlPayEntityId: lnurlPayId },
+    });
+
+    return lw as LnurlPayRequestEntity[];
   }
 }
 
