@@ -376,15 +376,17 @@ class HttpServer {
       }
     );
 
-    // LN Service LNURL Pay request (step 3)
+    // LN Service LNURL Pay specs (step 3)
     this._httpServer.get(
-      this._lnurlConfig.LN_SERVICE_CTX +
-        this._lnurlConfig.LN_SERVICE_PAY_CTX +
-        "/:externalId",
+      // this._lnurlConfig.LN_SERVICE_CTX +
+      this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX + "/:externalId",
       async (req, res) => {
-        logger.info(this._lnurlConfig.LN_SERVICE_PAY_CTX + ":", req.params);
+        logger.info(
+          this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX + ":",
+          req.params
+        );
 
-        const response = await this._lnurlPay.viewLnurlPay({
+        const response = await this._lnurlPay.lnServicePaySpecs({
           externalId: req.params.externalId,
         } as IReqViewLnurlPay);
 
@@ -396,13 +398,13 @@ class HttpServer {
       }
     );
 
-    // LN Service LNURL Pay request (step 3) lightning address format
+    // LN Service LNURL Pay specs (step 3) lightning address format
     this._httpServer.get(
       "/.well-known/lnurlp/:externalId",
       async (req, res) => {
         logger.info("/.well-known/lnurlp/:", req.params);
 
-        const response = await this._lnurlPay.viewLnurlPay({
+        const response = await this._lnurlPay.lnServicePaySpecs({
           externalId: req.params.externalId,
         } as IReqViewLnurlPay);
 
@@ -416,16 +418,15 @@ class HttpServer {
 
     // LN Service LNURL Pay request (step 5)
     this._httpServer.get(
-      this._lnurlConfig.LN_SERVICE_CTX +
-        this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX +
-        "/:externalId",
+      // this._lnurlConfig.LN_SERVICE_CTX +
+      this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX + "/:externalId",
       async (req, res) => {
         logger.info(
           this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX + ":",
           req.params
         );
 
-        const response = await this._lnurlPay.createLnurlPayRequest({
+        const response = await this._lnurlPay.lnServicePayRequest({
           externalId: req.params.externalId,
           amount: req.query.amount,
         } as IReqCreateLnurlPayRequest);
@@ -438,11 +439,10 @@ class HttpServer {
       }
     );
 
-    // LN Service LNURL Pay request callback (called when bolt11 paid)
+    // LN Service LNURL Pay request callback (called by CN when bolt11 paid)
     this._httpServer.post(
-      this._lnurlConfig.LN_SERVICE_CTX +
-        this._lnurlConfig.LN_SERVICE_PAY_CB_CTX +
-        "/:label",
+      // this._lnurlConfig.LN_SERVICE_CTX +
+      this._lnurlConfig.LN_SERVICE_PAY_CB_CTX + "/:label",
       async (req, res) => {
         logger.info(this._lnurlConfig.LN_SERVICE_PAY_CB_CTX + ":", req.params);
 
