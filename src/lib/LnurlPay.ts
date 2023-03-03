@@ -9,8 +9,8 @@ import IReqViewLnurlPay from "../types/IReqViewLnurlPay";
 import IRespLnurlPay from "../types/IRespLnurlPay";
 import { CreateLnurlPayValidator } from "../validators/CreateLnurlPayValidator";
 import IReqCreateLnurlPayRequest from "../types/IReqCreateLnurlPayRequest";
-import IRespLnurlPayRequest from "../types/IRespLnurlPayRequest";
-import { CreateLnurlPayRequestValidator } from "../validators/CreateLnurlPayRequestValidator";
+import IRespLnServicePaySpecs from "../types/IRespLnServicePaySpecs";
+import { CreateLnurlPayRequestValidator } from "../validators/LnServicePayValidator";
 import IRespLnCreate from "../types/cyphernode/IRespLnCreate";
 import { Utils } from "./Utils";
 import { LnurlPayEntity, LnurlPayRequestEntity } from "@prisma/client";
@@ -22,6 +22,8 @@ import { UpdateLnurlPayValidator } from "../validators/UpdateLnurlPayValidator";
 import IRespLnPay from "../types/cyphernode/IRespLnPay";
 import { LnAddress } from "./LnAddress";
 import IRespPayLnAddress from "../types/IRespPayLnAddress";
+import IRespLnServicePayRequest from "../types/IRespLnServicePayRequest";
+import IRespLnurlPayRequest from "../types/IRespLnurlPayRequest";
 
 class LnurlPay {
   private _lnurlConfig: LnurlConfig;
@@ -42,6 +44,9 @@ class LnurlPay {
     });
   }
 
+  // https://localhost/lnurl/payRequest/externalId
+  // https://localhost/lnurl/pay/externalId
+  // https://lnurl.bullbitcoin.com/
   lnurlPayUrl(externalId: string, req = false): string {
     return (
       this._lnurlConfig.LN_SERVICE_SERVER +
@@ -51,7 +56,7 @@ class LnurlPay {
       this._lnurlConfig.LN_SERVICE_CTX +
       (req
         ? this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX
-        : this._lnurlConfig.LN_SERVICE_PAY_CTX) +
+        : this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX) +
       "/" +
       externalId
     );
@@ -313,161 +318,202 @@ class LnurlPay {
     return response;
   }
 
-  //// payRequest !!!!
-  async viewLnurlPay(
+  /**
+   * Called by user's wallet to get Payment specs
+   */
+  async lnServicePaySpecs(
     reqViewLnurlPay: IReqViewLnurlPay
-  ): Promise<IRespLnurlPayRequest> {
+  ): Promise<IRespLnServicePaySpecs> {
     logger.info("LnurlPay.viewLnurlPay, reqViewLnurlPay:", reqViewLnurlPay);
 
-    let response: IRespLnurlPayRequest = {};
+    let response: IRespLnServicePaySpecs = {};
     const lnurlPay: LnurlPayEntity = await this._lnurlDB.getLnurlPayByExternalId(
       reqViewLnurlPay.externalId
     );
 
-    if (lnurlPay && lnurlPay.externalId) {
-      const metadata = JSON.stringify([["text/plain", lnurlPay.description]]);
+    if (lnurlPay) {
+      if (!lnurlPay.deleted) {
+        if (lnurlPay.externalId) {
+          const metadata = JSON.stringify([
+            ["text/plain", lnurlPay.description],
+          ]);
 
-      response = {
-        callback: this.lnurlPayUrl(lnurlPay.externalId, true),
-        maxSendable: lnurlPay.maxMsatoshi,
-        minSendable: lnurlPay.minMsatoshi,
-        metadata: metadata,
-        tag: "payRequest",
-      };
+          response = {
+            callback: this.lnurlPayUrl(lnurlPay.externalId, true),
+            maxSendable: lnurlPay.maxMsatoshi,
+            minSendable: lnurlPay.minMsatoshi,
+            metadata: metadata,
+            tag: "payRequest",
+          };
+        } else {
+          logger.debug("LnurlPay.lnServicePaySpecs, no external id.");
+
+          response = {
+            status: "ERROR",
+            reason: "Invalid arguments",
+          };
+        }
+      } else {
+        logger.debug("LnurlPay.lnServicePaySpecs, deactivated LNURL");
+
+        response = { status: "ERROR", reason: "Deactivated LNURL" };
+      }
     } else {
       // There is an error with inputs
-      logger.debug(
-        "LnurlPay.createLnurlPayRequest, there is an error with inputs."
-      );
+      logger.debug("LnurlPay.lnServicePaySpecs, LNURL not found.");
 
       response = {
         status: "ERROR",
-        reason: "Invalid arguments",
+        reason: "Not found",
       };
     }
 
     return response;
   }
 
-  async createLnurlPayRequest(
+  /**
+   * Called by user's wallet to ultimately get the bolt11 invoice
+   */
+  async lnServicePayRequest(
     reqCreateLnurlPayReq: IReqCreateLnurlPayRequest
-  ): Promise<IRespLnurlPayRequest> {
+  ): Promise<IRespLnServicePayRequest> {
     logger.info(
       "LnurlPay.createLnurlPayRequest, reqCreateLnurlPayReq:",
       reqCreateLnurlPayReq
     );
 
-    let response: IRespLnurlPayRequest = {};
+    let response: IRespLnServicePayRequest = {};
     const lnurlPay: LnurlPayEntity = await this._lnurlDB.getLnurlPayByExternalId(
       reqCreateLnurlPayReq.externalId
     );
 
-    if (
-      lnurlPay &&
-      CreateLnurlPayRequestValidator.validateRequest(
-        lnurlPay,
-        reqCreateLnurlPayReq
-      )
-    ) {
-      // Inputs are valid.
-      logger.debug("LnurlPay.createLnurlPayRequest, Inputs are valid.");
+    if (lnurlPay) {
+      if (!lnurlPay.deleted) {
+        if (
+          CreateLnurlPayRequestValidator.validateRequest(
+            lnurlPay,
+            reqCreateLnurlPayReq
+          )
+        ) {
+          // Inputs are valid.
+          logger.debug("LnurlPay.createLnurlPayRequest, Inputs are valid.");
 
-      const metadata = JSON.stringify([["text/plain", lnurlPay.description]]);
-      const hHash = crypto.createHmac("sha256", metadata).digest("hex");
-      const label = lnurlPay.lnurlPayId + "-" + Date.now();
+          const metadata = JSON.stringify([
+            ["text/plain", lnurlPay.description],
+          ]);
+          const hHash = crypto.createHmac("sha256", metadata).digest("hex");
+          const label = lnurlPay.lnurlPayId + "-" + Date.now();
 
-      const lnCreateParams = {
-        msatoshi: reqCreateLnurlPayReq.amount as number,
-        label: label,
-        description: hHash,
-        callbackUrl:
-          this._lnurlConfig.LN_SERVICE_SERVER +
-          (this._lnurlConfig.LN_SERVICE_PORT === 443
-            ? ""
-            : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
-          this._lnurlConfig.LN_SERVICE_CTX +
-          this._lnurlConfig.LN_SERVICE_PAY_CB_CTX +
-          "/" +
-          label,
-      };
-
-      logger.debug(
-        "LnurlPay.createLnurlPayRequest trying to get invoice",
-        lnCreateParams
-      );
-
-      const resp: IRespLnCreate = await this._cyphernodeClient.lnCreate(
-        lnCreateParams
-      );
-      logger.debug("LnurlPay.createLnurlPayRequest lnCreate invoice", resp);
-
-      if (resp.result) {
-        const data = {
-          lnurlPayEntityId: lnurlPay.lnurlPayId,
-          bolt11Label: label,
-          msatoshi: parseInt(reqCreateLnurlPayReq.amount as string),
-          bolt11: resp.result.bolt11,
-          metadata: metadata,
-        };
-
-        let lnurlPayRequestEntity: LnurlPayRequestEntity;
-        try {
-          lnurlPayRequestEntity = await this._lnurlDB.saveLnurlPayRequest(
-            data as LnurlPayRequestEntity
-          );
-        } catch (ex) {
-          logger.debug("ex:", ex);
-
-          response = {
-            status: "ERROR",
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            reason: (ex as any).message,
+          const lnCreateParams = {
+            msatoshi: reqCreateLnurlPayReq.amount as number,
+            label: label,
+            description: hHash,
+            callbackUrl:
+              this._lnurlConfig.LN_SERVICE_SERVER +
+              (this._lnurlConfig.LN_SERVICE_PORT === 443
+                ? ""
+                : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
+              this._lnurlConfig.LN_SERVICE_CTX +
+              this._lnurlConfig.LN_SERVICE_PAY_CB_CTX +
+              "/" +
+              label,
+            deschashonly: true,
           };
-          return response;
-        }
 
-        if (lnurlPayRequestEntity && lnurlPayRequestEntity.bolt11) {
           logger.debug(
-            "LnurlPay.createLnurlPayRequest, lnurlPayRequest created:",
-            lnurlPayRequestEntity
+            "LnurlPay.createLnurlPayRequest trying to get invoice",
+            lnCreateParams
           );
 
-          response = {
-            pr: lnurlPayRequestEntity.bolt11,
-            routes: [],
-          };
+          const resp: IRespLnCreate = await this._cyphernodeClient.lnCreate(
+            lnCreateParams
+          );
+          logger.debug("LnurlPay.createLnurlPayRequest lnCreate invoice", resp);
+
+          if (resp.result) {
+            const data = {
+              lnurlPayEntityId: lnurlPay.lnurlPayId,
+              bolt11Label: label,
+              msatoshi: parseInt(reqCreateLnurlPayReq.amount as string),
+              bolt11: resp.result.bolt11,
+              metadata: metadata,
+            };
+
+            let lnurlPayRequestEntity: LnurlPayRequestEntity;
+            try {
+              lnurlPayRequestEntity = await this._lnurlDB.saveLnurlPayRequest(
+                data as LnurlPayRequestEntity
+              );
+            } catch (ex) {
+              logger.debug("ex:", ex);
+
+              response = {
+                status: "ERROR",
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                reason: (ex as any).message,
+              };
+              return response;
+            }
+
+            if (lnurlPayRequestEntity && lnurlPayRequestEntity.bolt11) {
+              logger.debug(
+                "LnurlPay.createLnurlPayRequest, lnurlPayRequest created:",
+                lnurlPayRequestEntity
+              );
+
+              response = {
+                pr: lnurlPayRequestEntity.bolt11,
+                routes: [],
+              };
+            } else {
+              // LnurlPayRequest not created
+              logger.debug(
+                "LnurlPay.createLnurlPayRequest, LnurlPayRequest not created."
+              );
+
+              response = {
+                status: "ERROR",
+                reason: "payRequest not created",
+              };
+            }
+          } else {
+            response = {
+              status: "ERROR",
+              reason: "invoice not created",
+            };
+          }
         } else {
-          // LnurlPayRequest not created
+          // There is an error with inputs
           logger.debug(
-            "LnurlPay.createLnurlPayRequest, LnurlPayRequest not created."
+            "LnurlPay.createLnurlPayRequest, there is an error with inputs."
           );
 
           response = {
             status: "ERROR",
-            reason: "payRequest not created",
+            reason: "Invalid arguments",
           };
         }
       } else {
-        response = {
-          status: "ERROR",
-          reason: "invoice not created",
-        };
+        logger.debug("LnurlPay.lnServicePaySpecs, deactivated LNURL");
+
+        response = { status: "ERROR", reason: "Deactivated LNURL" };
       }
     } else {
       // There is an error with inputs
-      logger.debug(
-        "LnurlPay.createLnurlPayRequest, there is an error with inputs."
-      );
+      logger.debug("LnurlPay.lnServicePaySpecs, LNURL not found.");
 
       response = {
         status: "ERROR",
-        reason: "Invalid arguments",
+        reason: "Not found",
       };
     }
 
     return response;
   }
 
+  /**
+   * Delete a payRequest, for instance if the LNPay Address is deleted.
+   */
   async deleteLnurlPayRequest(
     lnurlPayRequestId: number
   ): Promise<IRespLnurlPayRequest> {
@@ -594,6 +640,9 @@ class LnurlPay {
     return response;
   }
 
+  /**
+   * This is called by CN when an LN invoice is paid.
+   */
   async lnurlPayRequestCallback(
     reqCallback: IReqLnurlPayRequestCallback
   ): Promise<IRespLnurlPayRequestCallback> {
@@ -634,10 +683,16 @@ class LnurlPay {
 
               lnurlPayRequestEntity.paidCalledbackTs = new Date();
               await this._lnurlDB.saveLnurlPayRequest(lnurlPayRequestEntity);
+
+              response.result = "success";
+            } else {
+              // This will make Cyphernode redo the callback later
+              response.error = {
+                code: ErrorCodes.InternalError,
+                message: "Downstream callback failed",
+              };
             }
           }
-
-          response.result = "success";
         } else {
           response.error = {
             code: ErrorCodes.InvalidRequest,
@@ -652,6 +707,9 @@ class LnurlPay {
     return result;
   }
 
+  /**
+   * If you want to pay to external LNURL Pay Address
+   */
   async payLnAddress(req: IReqPayLnAddress): Promise<IRespPayLnAddress> {
     const bolt11 = await LnAddress.fetchBolt11(req.address, req.amountMsat);
 

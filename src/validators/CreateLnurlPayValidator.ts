@@ -5,6 +5,7 @@ class CreateLnurlPayValidator {
     if (
       !!request.minMsatoshi &&
       !!request.maxMsatoshi &&
+      request.minMsatoshi > 0 &&
       request.maxMsatoshi >= request.minMsatoshi
     ) {
       // Mandatory maxMsatoshi at least equal to minMsatoshi

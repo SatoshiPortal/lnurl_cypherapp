@@ -546,9 +546,15 @@ class LnurlWithdraw {
       logger.debug("LnurlWithdraw.lnFetchPaymentStatus, lnListPays errored...");
     } else if (resp.result && resp.result.pays && resp.result.pays.length > 0) {
       const nonfailedpay = resp.result.pays.find((obj) => {
-        return ((obj as any).status === "complete" || (obj as any).status === "pending");
-      })
-      logger.debug("LnurlWithdraw.lnFetchPaymentStatus, nonfailedpay =", nonfailedpay);
+        return (
+          (obj as any).status === "complete" ||
+          (obj as any).status === "pending"
+        );
+      });
+      logger.debug(
+        "LnurlWithdraw.lnFetchPaymentStatus, nonfailedpay =",
+        nonfailedpay
+      );
 
       if (nonfailedpay !== undefined) {
         paymentStatus = (nonfailedpay as any).status;
@@ -610,7 +616,9 @@ class LnurlWithdraw {
             );
             // Let's keep two attempts, and put a message in the second one...
             pay.attempts.splice(2);
-            pay.attempts[1].failure = { message: "attempts array truncated by lnurl cypherapp" };
+            pay.attempts[1].failure = {
+              message: "attempts array truncated by lnurl cypherapp",
+            };
           }
         });
 
@@ -777,7 +785,9 @@ class LnurlWithdraw {
         let lnurlWithdrawEntitys;
         if (lnurlWithdrawEntity) {
           // Let's take the latest on from database, just in case passed object has stale data
-          lnurlWithdrawEntitys = await this._lnurlDB.getNonCalledbackLnurlWithdraws(lnurlWithdrawEntity.lnurlWithdrawId);
+          lnurlWithdrawEntitys = await this._lnurlDB.getNonCalledbackLnurlWithdraws(
+            lnurlWithdrawEntity.lnurlWithdrawId
+          );
         } else {
           lnurlWithdrawEntitys = await this._lnurlDB.getNonCalledbackLnurlWithdraws();
         }
