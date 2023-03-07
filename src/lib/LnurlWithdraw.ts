@@ -94,8 +94,13 @@ class LnurlWithdraw {
       const secretToken = randomBytes(16).toString("hex");
 
       const lnurlDecoded =
-        this._lnurlConfig.LN_SERVICE_SERVER +
-        (this._lnurlConfig.LN_SERVICE_PORT === 443
+        this._lnurlConfig.LN_SERVICE_SCHEME +
+        "://" +
+        this._lnurlConfig.LN_SERVICE_DOMAIN +
+        ((this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "https" &&
+          this._lnurlConfig.LN_SERVICE_PORT === 443) ||
+          (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" &&
+            this._lnurlConfig.LN_SERVICE_PORT === 80)
           ? ""
           : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
         this._lnurlConfig.LN_SERVICE_CTX +
@@ -353,8 +358,15 @@ class LnurlWithdraw {
               result = {
                 tag: "withdrawRequest",
                 callback:
-                  this._lnurlConfig.LN_SERVICE_SERVER +
-                  (this._lnurlConfig.LN_SERVICE_PORT === 443
+                  this._lnurlConfig.LN_SERVICE_SCHEME +
+                  "://" +
+                  this._lnurlConfig.LN_SERVICE_DOMAIN +
+                  ((this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() ===
+                    "https" &&
+                    this._lnurlConfig.LN_SERVICE_PORT === 443) ||
+                    (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() ===
+                      "http" &&
+                      this._lnurlConfig.LN_SERVICE_PORT === 80)
                     ? ""
                     : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
                   this._lnurlConfig.LN_SERVICE_CTX +
@@ -970,7 +982,7 @@ class LnurlWithdraw {
                     this._lnurlConfig.URL_API_SERVER +
                     ":" +
                     this._lnurlConfig.URL_API_PORT +
-                    this._lnurlConfig.URL_CTX_WEBHOOKS,
+                    this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS,
                 };
 
                 const resp: IRespBatchRequest = await this._batcherClient.queueForNextBatch(

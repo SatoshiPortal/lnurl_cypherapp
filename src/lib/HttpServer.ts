@@ -335,7 +335,7 @@ class HttpServer {
 
     // LN Service LNURL Withdraw Request
     this._httpServer.get(
-      // this._lnurlConfig.LN_SERVICE_CTX +
+      // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX,
       async (req, res) => {
         logger.info(
@@ -357,7 +357,7 @@ class HttpServer {
 
     // LN Service LNURL Withdraw
     this._httpServer.get(
-      // this._lnurlConfig.LN_SERVICE_CTX +
+      // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
       async (req, res) => {
         logger.info(this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX + ":", req.query);
@@ -378,7 +378,7 @@ class HttpServer {
 
     // LN Service LNURL Pay specs (step 3)
     this._httpServer.get(
-      // this._lnurlConfig.LN_SERVICE_CTX +
+      // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX + "/:externalId",
       async (req, res) => {
         logger.info(
@@ -418,7 +418,7 @@ class HttpServer {
 
     // LN Service LNURL Pay request (step 5)
     this._httpServer.get(
-      // this._lnurlConfig.LN_SERVICE_CTX +
+      // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX + "/:externalId",
       async (req, res) => {
         logger.info(
@@ -441,10 +441,10 @@ class HttpServer {
 
     // LN Service LNURL Pay request callback (called by CN when bolt11 paid)
     this._httpServer.post(
-      // this._lnurlConfig.LN_SERVICE_CTX +
-      this._lnurlConfig.LN_SERVICE_PAY_CB_CTX + "/:label",
+      // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
+      this._lnurlConfig.URL_CTX_PAY_WEBHOOKS + "/:label",
       async (req, res) => {
-        logger.info(this._lnurlConfig.LN_SERVICE_PAY_CB_CTX + ":", req.params);
+        logger.info(this._lnurlConfig.URL_CTX_PAY_WEBHOOKS + ":", req.params);
 
         const response = await this._lnurlPay.lnurlPayRequestCallback({
           bolt11Label: req.params.label,
@@ -459,9 +459,12 @@ class HttpServer {
     );
 
     this._httpServer.post(
-      this._lnurlConfig.URL_CTX_WEBHOOKS,
+      this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS,
       async (req, res) => {
-        logger.info(this._lnurlConfig.URL_CTX_WEBHOOKS + ":", req.body);
+        logger.info(
+          this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS + ":",
+          req.body
+        );
 
         const response = await this._lnurlWithdraw.processBatchWebhook(
           req.body

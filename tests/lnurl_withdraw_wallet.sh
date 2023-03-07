@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# This is a super basic LNURL-compatible wallet, command-line
+# This is a super basic LNURL-withdraw-compatible wallet, command-line
 # Useful to test LNURL on a regtest or testnet environment.
 #
 
