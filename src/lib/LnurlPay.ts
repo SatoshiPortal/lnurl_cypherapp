@@ -1,5 +1,4 @@
 import logger from "./Log2File";
-import crypto from "crypto";
 import LnurlConfig from "../config/LnurlConfig";
 import { CyphernodeClient } from "./CyphernodeClient";
 import { LnurlDB } from "./LnurlDBPrisma";
@@ -44,13 +43,19 @@ class LnurlPay {
     });
   }
 
+  // https://localhost/lnurl/paySpecs/externalId
   // https://localhost/lnurl/payRequest/externalId
-  // https://localhost/lnurl/pay/externalId
-  // https://lnurl.bullbitcoin.com/
+  // https://lnurl.bullbitcoin.com/paySpecs/externalId
+  // https://lnurl.bullbitcoin.com/payRequest/externalId
   lnurlPayUrl(externalId: string, req = false): string {
     return (
-      this._lnurlConfig.LN_SERVICE_SERVER +
-      (this._lnurlConfig.LN_SERVICE_PORT === 443
+      this._lnurlConfig.LN_SERVICE_SCHEME +
+      "://" +
+      this._lnurlConfig.LN_SERVICE_DOMAIN +
+      ((this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "https" &&
+        this._lnurlConfig.LN_SERVICE_PORT === 443) ||
+        (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" &&
+          this._lnurlConfig.LN_SERVICE_PORT === 80)
         ? ""
         : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
       this._lnurlConfig.LN_SERVICE_CTX +
@@ -336,7 +341,13 @@ class LnurlPay {
         if (lnurlPay.externalId) {
           const metadata = JSON.stringify([
             ["text/plain", lnurlPay.description],
+            [
+              "text/identifier",
+              `${lnurlPay.externalId}@${this._lnurlConfig.LN_SERVICE_DOMAIN}`,
+            ],
           ]);
+
+          logger.info("metadata =", metadata);
 
           response = {
             callback: this.lnurlPayUrl(lnurlPay.externalId, true),
@@ -400,21 +411,24 @@ class LnurlPay {
 
           const metadata = JSON.stringify([
             ["text/plain", lnurlPay.description],
+            [
+              "text/identifier",
+              `${lnurlPay.externalId}@${this._lnurlConfig.LN_SERVICE_DOMAIN}`,
+            ],
           ]);
-          const hHash = crypto.createHmac("sha256", metadata).digest("hex");
+          logger.debug("metadata =", metadata);
+
           const label = lnurlPay.lnurlPayId + "-" + Date.now();
 
           const lnCreateParams = {
             msatoshi: reqCreateLnurlPayReq.amount as number,
             label: label,
-            description: hHash,
+            description: metadata,
             callbackUrl:
-              this._lnurlConfig.LN_SERVICE_SERVER +
-              (this._lnurlConfig.LN_SERVICE_PORT === 443
-                ? ""
-                : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
-              this._lnurlConfig.LN_SERVICE_CTX +
-              this._lnurlConfig.LN_SERVICE_PAY_CB_CTX +
+              this._lnurlConfig.URL_API_SERVER +
+              ":" +
+              this._lnurlConfig.URL_API_PORT +
+              this._lnurlConfig.URL_CTX_PAY_WEBHOOKS +
               "/" +
               label,
             deschashonly: true,

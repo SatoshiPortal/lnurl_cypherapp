@@ -135,39 +135,36 @@ delete_lnurl_pay() {
   echo "${deleteLnurlPay}"
 }
 
+call_lnservice_pay_specs() {
+  trace 1 "\n[call_lnservice_pay_specs] ${BCyan}User calls LN Service LNURL Pay Specs...${Color_Off}"
+
+  local url=${1}
+  trace 2 "[call_lnservice_pay_specs] url=${url}"
+
+  local paySpecsResponse=$(exec_in_test_container curl -sk ${url})
+  trace 2 "[call_lnservice_pay_specs] paySpecsResponse=${paySpecsResponse}"
+
+  echo "${paySpecsResponse}"
+}
+
 call_lnservice_pay_request() {
   trace 1 "\n[call_lnservice_pay_request] ${BCyan}User calls LN Service LNURL Pay Request...${Color_Off}"
 
-  local url=${1}
-  trace 2 "[call_lnservice_pay_request] url=${url}"
-
-  local payRequestResponse=$(exec_in_test_container curl -sk ${url})
-  trace 2 "[call_lnservice_pay_request] payRequestResponse=${payRequestResponse}"
-
-  echo "${payRequestResponse}"
-}
-
-call_lnservice_pay() {
-  trace 1 "\n[call_lnservice_pay] ${BCyan}User prepares call to LN Service LNURL Pay...${Color_Off}"
-
   local payRequestResponse=${1}
-  trace 2 "[call_lnservice_pay] payRequestResponse=${payRequestResponse}"
+  trace 2 "[call_lnservice_pay_request] payRequestResponse=${payRequestResponse}"
   local amount=${2}
-  trace 2 "[call_lnservice_pay] amount=${amount}"
+  trace 2 "[call_lnservice_pay_request] amount=${amount}"
 
   local callback=$(echo "${payRequestResponse}" | jq -r ".callback")
-  trace 2 "[call_lnservice_pay] callback=${callback}"
-  # k1=$(echo "${payRequestResponse}" | jq -r ".k1")
-  # trace 2 "[call_lnservice_pay] k1=${k1}"
+  trace 2 "[call_lnservice_pay_request] callback=${callback}"
 
-  trace 2 "\n[call_lnservice_pay] ${BCyan}User finally calls LN Service LNURL Pay...${Color_Off}"
-  trace 2 "[call_lnservice_pay] url=${callback}?amount=${amount}"
+  trace 2 "\n[call_lnservice_pay_request] ${BCyan}User finally calls LN Service LNURL Pay Request...${Color_Off}"
+  trace 2 "[call_lnservice_pay_request] url=${callback}?amount=${amount}"
   payResponse=$(exec_in_test_container curl -sk ${callback}?amount=${amount})
-  trace 2 "[call_lnservice_pay] payResponse=${payResponse}"
+  trace 2 "[call_lnservice_pay_request] payResponse=${payResponse}"
 
   echo "${payResponse}"
 }
-
 
 decode_lnurl() {
   trace 2 "\n\n[decode_lnurl] ${BCyan}Decoding LNURL...${Color_Off}\n"
@@ -184,18 +181,17 @@ decode_lnurl() {
   echo "${url}"
 }
 
-create_bolt11() {
-  trace 2 "\n\n[create_bolt11] ${BCyan}User creates bolt11 for the payment...${Color_Off}\n"
+decode_bolt11() {
+  trace 2 "\n\n[decode_bolt11] ${BCyan}Decoding bolt11 string...${Color_Off}\n"
 
-  local msatoshi=${1}
-  trace 3 "[create_bolt11] msatoshi=${msatoshi}"
-  local desc=${2}
-  trace 3 "[create_bolt11] desc=${desc}"
+  local bolt11=${1}
 
-  local invoice=$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli invoice ${msatoshi} "${desc}" "${desc}")
-  trace 3 "[create_bolt11] invoice=${invoice}"
+  local data='{"id":1,"jsonrpc":"2.0","method":"decode","params":["'${bolt11}'"]}'
+  trace 3 "[decode_bolt11] data=${data}"
+  local decoded=$(exec_in_test_container curl -sd "${data}" -H 'X-Access:FoeDdQw5yl7pPfqdlGy3OEk/txGqyJjSbVtffhzs7kc=' -H "Content-Type: application/json" cyphernode_sparkwallet2:9737/rpc)
+  trace 3 "[decode_bolt11] decoded=${decoded}"
 
-  echo "${invoice}"
+  echo "${decoded}"
 }
 
 get_invoice_status_ln1() {
@@ -220,8 +216,6 @@ get_invoice_status() {
   local instance=${2}
   trace 3 "[get_invoice_status] instance=${instance}"
 
-  # local payment_hash=$(echo "${invoice}" | jq -r ".payment_hash")
-  # trace 3 "[get_invoice_status] payment_hash=${payment_hash}"
   local data='{"id":1,"jsonrpc":"2.0","method":"listinvoices","params":{"payment_hash":"'${payment_hash}'"}}'
   trace 3 "[get_invoice_status] data=${data}"
   local invoices=$(docker exec -it `docker ps -q -f "name=lightning${instance}\."` lightning-cli listinvoices -k payment_hash=${payment_hash})
@@ -232,25 +226,31 @@ get_invoice_status() {
   echo "${status}"
 }
 
-call_lnservice_withdraw() {
-  trace 1 "\n[call_lnservice_withdraw] ${BCyan}User prepares call to LN Service LNURL Withdraw...${Color_Off}"
+check_desc_hash() {
+  trace 2 "\n\n[check_desc_hash] ${BCyan}Checking description hash...${Color_Off}\n"
 
-  local withdrawRequestResponse=${1}
-  trace 2 "[call_lnservice_withdraw] withdrawRequestResponse=${withdrawRequestResponse}"
-  local bolt11=${2}
-  trace 2 "[call_lnservice_withdraw] bolt11=${bolt11}"
+  local bolt11=${1}
+  local paySpecsResponse=${2}
 
-  local callback=$(echo "${withdrawRequestResponse}" | jq -r ".callback")
-  trace 2 "[call_lnservice_withdraw] callback=${callback}"
-  k1=$(echo "${withdrawRequestResponse}" | jq -r ".k1")
-  trace 2 "[call_lnservice_withdraw] k1=${k1}"
+  local decoded=$(decode_bolt11 "${bolt11}")
+  trace 3 "[check_desc_hash] decoded=${decoded}"
+  local description_hash=$(echo "${decoded}" | jq -r ".description_hash")
+  trace 3 "[check_desc_hash] description_hash=${description_hash}"
 
-  trace 2 "\n[call_lnservice_withdraw] ${BCyan}User finally calls LN Service LNURL Withdraw...${Color_Off}"
-  trace 2 "[call_lnservice_withdraw] url=${callback}?k1=${k1}\&pr=${bolt11}"
-  withdrawResponse=$(exec_in_test_container curl -sk ${callback}?k1=${k1}\&pr=${bolt11})
-  trace 2 "[call_lnservice_withdraw] withdrawResponse=${withdrawResponse}"
+  local metadata=$(echo "${paySpecsResponse}" | jq -r ".metadata")
+  trace 3 "[happy_path] metadata=${metadata}"
+  local computed_hash=$(echo -n ${metadata} | shasum -a 256 | cut -d' ' -f1)
+  trace 3 "[check_desc_hash] computed_hash=${computed_hash}"
 
-  echo "${withdrawResponse}"
+  if [ "${computed_hash}" = "${description_hash}" ]; then
+    trace 1 "\n\n[check_desc_hash] ${On_IGreen}${BBlack}  check_desc_hash: description hash is good!                                                                       ${Color_Off}\n"
+    date
+    return 0
+  else
+    trace 1 "\n\n[check_desc_hash] ${On_Red}${BBlack}  check_desc_hash: description hash not good!  FAILURE!                                                                         ${Color_Off}\n"
+    date
+    return 1
+  fi
 }
 
 happy_path() {
@@ -297,15 +297,20 @@ happy_path() {
 
   # 3. User calls LNServicePay
 
-  local payRequestResponse=$(call_lnservice_pay_request "${serviceUrl}")
-  trace 3 "[happy_path] payRequestResponse=${payRequestResponse}"
+  local paySpecsResponse=$(call_lnservice_pay_specs "${serviceUrl}")
+  trace 3 "[happy_path] paySpecsResponse=${paySpecsResponse}"
 
   # 4. User calls LNServicePayRequest
 
-  local payResponse=$(call_lnservice_pay "${payRequestResponse}" ${externalIdRandom})
+  local payResponse=$(call_lnservice_pay_request "${paySpecsResponse}" ${externalIdRandom})
   trace 3 "[happy_path] payResponse=${payResponse}"
   local bolt11=$(echo ${payResponse} | jq -r ".pr")
   trace 3 "[happy_path] bolt11=${bolt11}"
+
+  check_desc_hash "${bolt11}" "${paySpecsResponse}"
+  if [ "$?" = "1" ]; then
+    return 1
+  fi
 
   # Reconnecting the two LN instances...
   ln_reconnect
@@ -454,15 +459,15 @@ invalid_payment() {
 
   # 3. User calls LNServicePay
 
-  local payRequestResponse=$(call_lnservice_pay_request "${serviceUrl}")
-  trace 3 "[invalid_payment] payRequestResponse=${payRequestResponse}"
+  local paySpecsResponse=$(call_lnservice_pay_specs "${serviceUrl}")
+  trace 3 "[invalid_payment] paySpecsResponse=${paySpecsResponse}"
 
   # 4. User calls LNServicePayRequest with an amount less than min
 
   local toosmall=$((${externalIdRandom}-${min_max_range}-1))
   trace 3 "[invalid_payment] toosmall=${toosmall}"
 
-  local payResponse=$(call_lnservice_pay "${payRequestResponse}" ${toosmall})
+  local payResponse=$(call_lnservice_pay_request "${paySpecsResponse}" ${toosmall})
   trace 3 "[invalid_payment] payResponse=${payResponse}"
 
   echo "${payResponse}" | grep -qi "error"
@@ -480,7 +485,7 @@ invalid_payment() {
   local toolarge=$((${externalIdRandom}+${min_max_range}+1))
   trace 3 "[invalid_payment] toolarge=${toolarge}"
 
-  local payResponse=$(call_lnservice_pay "${payRequestResponse}" ${toolarge})
+  local payResponse=$(call_lnservice_pay_request "${paySpecsResponse}" ${toolarge})
   trace 3 "[invalid_payment] payResponse=${payResponse}"
 
   echo "${payResponse}" | grep -qi "error"
@@ -539,17 +544,22 @@ pay_to_deleted() {
 
   # 3. User calls LNServicePay
 
-  local payRequestResponse=$(call_lnservice_pay_request "${serviceUrl}")
-  trace 3 "[pay_to_deleted] payRequestResponse=${payRequestResponse}"
+  local paySpecsResponse=$(call_lnservice_pay_specs "${serviceUrl}")
+  trace 3 "[pay_to_deleted] paySpecsResponse=${paySpecsResponse}"
 
   sleep 1
 
   # 4. User calls LNServicePayRequest
 
-  local payResponse=$(call_lnservice_pay "${payRequestResponse}" ${externalIdRandom})
+  local payResponse=$(call_lnservice_pay_request "${paySpecsResponse}" ${externalIdRandom})
   trace 3 "[pay_to_deleted] payResponse=${payResponse}"
   local bolt11=$(echo ${payResponse} | jq -r ".pr")
   trace 3 "[pay_to_deleted] bolt11=${bolt11}"
+
+  check_desc_hash "${bolt11}" "${paySpecsResponse}"
+  if [ "$?" = "1" ]; then
+    return 1
+  fi
 
   # Reconnecting the two LN instances...
   ln_reconnect
@@ -614,10 +624,10 @@ pay_to_deleted() {
   fi
 
   # 9. User calls LNServicePay
-  local payRequestResponse2=$(call_lnservice_pay_request "${serviceUrl}")
-  trace 3 "[pay_to_deleted] payRequestResponse2=${payRequestResponse2}"
+  local paySpecsResponse2=$(call_lnservice_pay_specs "${serviceUrl}")
+  trace 3 "[pay_to_deleted] paySpecsResponse2=${paySpecsResponse2}"
 
-  echo "${payRequestResponse2}" | grep -qi "Deactivated"
+  echo "${paySpecsResponse2}" | grep -qi "Deactivated"
   if [ "$?" -ne "0" ]; then
     trace 1 "\n\n[pay_to_deleted] ${On_Red}${BBlack} Pay to deleted: NOT DELETED!                                                                         ${Color_Off}\n"
     return 1
@@ -626,7 +636,7 @@ pay_to_deleted() {
   fi
 
   # 10. User calls LNServicePayRequest
-  payResponse=$(call_lnservice_pay "${payRequestResponse}" ${externalIdRandom})
+  payResponse=$(call_lnservice_pay_request "${paySpecsResponse}" ${externalIdRandom})
   trace 3 "[pay_to_deleted] payResponse=${payResponse}"
 
   echo "${payResponse}" | grep -qi "Deactivated"
