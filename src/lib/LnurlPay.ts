@@ -731,7 +731,7 @@ class LnurlPay {
     if (bolt11) {
       const lnPayParams = {
         bolt11,
-        expectedMsatoshi: req.amountMsat,
+        expected_msatoshi: req.amountMsat,
       };
 
       let resp: IRespLnPay = await this._cyphernodeClient.lnPay(lnPayParams);

@@ -425,18 +425,12 @@ class LnurlWithdraw {
     lnurlWithdrawEntity.bolt11 = bolt11;
     const lnPayParams = {
       bolt11: bolt11,
-      expectedMsatoshi: lnurlWithdrawEntity.msatoshi || undefined,
-      expectedDescription: lnurlWithdrawEntity.description || undefined,
+      // eslint-disable-next-line @typescript-eslint/camelcase
+      expected_msatoshi: lnurlWithdrawEntity.msatoshi || undefined,
+      // eslint-disable-next-line @typescript-eslint/camelcase
+      expected_description: lnurlWithdrawEntity.description || undefined,
     };
     let resp: IRespLnPay = await this._cyphernodeClient.lnPay(lnPayParams);
-
-    if (resp.error) {
-      logger.debug(
-        "LnurlWithdraw.processLnPayment, ln_pay error, let's retry #1!"
-      );
-
-      resp = await this._cyphernodeClient.lnPay(lnPayParams);
-    }
 
     if (resp.error) {
       logger.debug("LnurlWithdraw.processLnPayment, ln_pay error!");
@@ -1241,6 +1235,15 @@ class LnurlWithdraw {
       id: webhookBody.id,
       result: "Merci bonsouère!",
     } as IResponseMessage;
+
+    if (!lnurlWithdrawEntity) {
+      result.error = {
+        code: ErrorCodes.InvalidRequest,
+        message: "batchRequestId not found",
+      };
+
+      return result;
+    }
 
     lnurlWithdrawEntity.withdrawnDetails = JSON.stringify(webhookBody);
     lnurlWithdrawEntity.withdrawnTs = new Date();

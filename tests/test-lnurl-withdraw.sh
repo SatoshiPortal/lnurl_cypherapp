@@ -379,6 +379,137 @@ happy_path() {
   fi
 }
 
+wrong_bolt11() {
+  # wrong_bolt11:
+  #
+  # 1. Create a LNURL Withdraw
+  # 2. Get it and compare
+  # 3. User calls LNServiceWithdrawRequest
+  # 4. User calls LNServiceWithdraw with wrong bolt11
+  # 5. User calls LNServiceWithdraw with wrong description
+
+  trace 1 "\n\n[wrong_bolt11] ${On_Yellow}${BBlack} wrong_bolt11:                                                                     ${Color_Off}\n"
+
+  local callbackurl=${1}
+
+  # Service creates LNURL Withdraw
+  local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 15)
+  trace 3 "[wrong_bolt11] createLnurlWithdraw=${createLnurlWithdraw}"
+  local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
+  trace 3 "lnurl=${lnurl}"
+
+  local lnurl_withdraw_id=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurlWithdrawId")
+  local get_lnurl_withdraw=$(get_lnurl_withdraw ${lnurl_withdraw_id})
+  trace 3 "[wrong_bolt11] get_lnurl_withdraw=${get_lnurl_withdraw}"
+  local equals=$(jq --argjson a "${createLnurlWithdraw}" --argjson b "${get_lnurl_withdraw}" -n '$a == $b')
+  trace 3 "[wrong_bolt11] equals=${equals}"
+  if [ "${equals}" = "true" ]; then
+    trace 2 "[wrong_bolt11] EQUALS!"
+  else
+    trace 1 "\n[wrong_bolt11] ${On_Red}${BBlack}  wrong_bolt11: NOT EQUALS!                                                                          ${Color_Off}\n"
+    return 1
+  fi
+
+  # Decode LNURL
+  local serviceUrl=$(decode_lnurl "${lnurl}")
+  trace 3 "[wrong_bolt11] serviceUrl=${serviceUrl}"
+
+  # User calls LN Service LNURL Withdraw Request
+  local withdrawRequestResponse=$(call_lnservice_withdraw_request "${serviceUrl}")
+  trace 3 "[wrong_bolt11] withdrawRequestResponse=${withdrawRequestResponse}"
+
+  # Create bolt11 with wrong amount for LN Service LNURL Withdraw
+  local msatoshi=$(echo "${createLnurlWithdraw}" | jq -r '.result.msatoshi')
+  msatoshi=$((${msatoshi}+10))
+  local description=$(echo "${createLnurlWithdraw}" | jq -r '.result.description')
+  local invoice=$(create_bolt11 "${msatoshi}" "${description}")
+  trace 3 "[wrong_bolt11] invoice=${invoice}"
+  local bolt11=$(echo ${invoice} | jq -r ".bolt11")
+  trace 3 "[wrong_bolt11] bolt11=${bolt11}"
+
+  # We want to see that that invoice is unpaid first...
+  local status=$(get_invoice_status "${invoice}")
+  trace 3 "[wrong_bolt11] status=${status}"
+
+  trace 2 "\n\n[wrong_bolt11] ${BPurple}User calles LN Service Withdraw with wrong bolt11...\n${Color_Off}"
+
+  # User calls LN Service LNURL Withdraw
+  local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
+  trace 3 "[wrong_bolt11] withdrawResponse=${withdrawResponse}"
+
+  status=$(echo ${withdrawResponse} | jq -r ".status")
+  trace 3 "[wrong_bolt11] status=${status}"
+
+  if [ "${status}" = "ERROR" ]; then
+    trace 1 "\n\n[wrong_bolt11] ${On_IGreen}${BBlack}  wrong_bolt11: SUCCESS!                                                                       ${Color_Off}\n"
+    date
+  else
+    trace 1 "\n\n[wrong_bolt11] ${On_Red}${BBlack}  wrong_bolt11: FAILURE!                                                                         ${Color_Off}\n"
+    date
+    return 1
+  fi
+
+  # We want to see if payment received (invoice status paid)
+  status=$(get_invoice_status "${invoice}")
+  trace 3 "[wrong_bolt11] status=${status}"
+
+  if [ "${status}" = "paid" ]; then
+    trace 1 "\n\n[wrong_bolt11] ${On_Red}${BBlack}  wrong_bolt11: FAILURE!                                                                         ${Color_Off}\n"
+    date
+    return 1
+  else
+    trace 1 "\n\n[wrong_bolt11] ${On_IGreen}${BBlack}  wrong_bolt11: SUCCESS!                                                                       ${Color_Off}\n"
+    date
+    # return 0
+  fi
+
+  # Create bolt11 with wrong description for LN Service LNURL Withdraw
+  local msatoshi=$(echo "${createLnurlWithdraw}" | jq -r '.result.msatoshi')
+  local description=$(echo "${createLnurlWithdraw}" | jq -r '.result.description')
+  description="wrong${description}"
+  local invoice=$(create_bolt11 "${msatoshi}" "${description}")
+  trace 3 "[wrong_bolt11] invoice=${invoice}"
+  local bolt11=$(echo ${invoice} | jq -r ".bolt11")
+  trace 3 "[wrong_bolt11] bolt11=${bolt11}"
+
+  # We want to see that that invoice is unpaid first...
+  local status=$(get_invoice_status "${invoice}")
+  trace 3 "[wrong_bolt11] status=${status}"
+
+  trace 2 "\n\n[wrong_bolt11] ${BPurple}User calles LN Service Withdraw with wrong description...\n${Color_Off}"
+
+  # User calls LN Service LNURL Withdraw
+  local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
+  trace 3 "[wrong_bolt11] withdrawResponse=${withdrawResponse}"
+
+  status=$(echo ${withdrawResponse} | jq -r ".status")
+  trace 3 "[wrong_bolt11] status=${status}"
+
+  if [ "${status}" = "ERROR" ]; then
+    trace 1 "\n\n[wrong_bolt11] ${On_IGreen}${BBlack}  wrong_bolt11: SUCCESS!                                                                       ${Color_Off}\n"
+    date
+  else
+    trace 1 "\n\n[wrong_bolt11] ${On_Red}${BBlack}  wrong_bolt11: FAILURE!                                                                         ${Color_Off}\n"
+    date
+    return 1
+  fi
+
+  # We want to see if payment received (invoice status paid)
+  status=$(get_invoice_status "${invoice}")
+  trace 3 "[wrong_bolt11] status=${status}"
+
+  if [ "${status}" = "paid" ]; then
+    trace 1 "\n\n[wrong_bolt11] ${On_Red}${BBlack}  wrong_bolt11: FAILURE!                                                                         ${Color_Off}\n"
+    date
+    return 1
+  else
+    trace 1 "\n\n[wrong_bolt11] ${On_IGreen}${BBlack}  wrong_bolt11: SUCCESS!                                                                       ${Color_Off}\n"
+    date
+    return 0
+  fi
+
+}
+
 expired1() {
   # Expired 1:
   #
@@ -616,6 +747,9 @@ deleted2() {
   local deleted=$(echo "${get_lnurl_withdraw}" | jq '.result.deleted = true')
   trace 3 "[deleted2] deleted=${deleted}"
 
+  trace 3 "[deleted2] Sleeping 5 seconds..."
+  sleep 5
+
   # User calls LN Service LNURL Withdraw
   local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
   trace 3 "[deleted2] withdrawResponse=${withdrawResponse}"
@@ -699,7 +833,7 @@ fallback1() {
     trace 1 "\n\n[fallback1] ${On_Red}${BBlack} Fallback 1: NOT EXPIRED!                                                                         ${Color_Off}\n"
     return 1
   else
-    trace 2 "[fallback1] EXPIRED!"
+    trace 2 "[fallback1] EXPIRED!  Good!"
   fi
 
   wait
@@ -1049,6 +1183,7 @@ TRACING=3
 date
 
 stop_test_container
+sleep 5
 start_test_container
 
 callbackserverport="1111"
@@ -1061,6 +1196,7 @@ exec_in_test_container_leave_lf apk add --update curl
 ln_reconnect
 
 happy_path "${callbackurl}" \
+&& wrong_bolt11 "${callbackurl}" \
 && expired1 "${callbackurl}" \
 && expired2 "${callbackurl}" \
 && deleted1 "${callbackurl}" \

@@ -47,9 +47,11 @@ npm run build
 npm run start
 
 DEBUG:
-docker run --rm -it --name lnurl -v "$PWD:/lnurl" -v "$PWD/cypherapps/data:/lnurl/data" -v "$PWD/cypherapps/data/logs:/lnurl/logs" -v "/Users/kexkey/dev/cn-dev/dist/cyphernode/gatekeeper/certs/cert.pem:/lnurl/cert.pem:ro" -p 9229:9229 -p 8000:8000 --network cyphernodeappsnet --entrypoint ash lnurl 
+docker run --rm -it --name lnurl -v "$PWD:/lnurl" -v "$PWD/cypherapps/data:/lnurl/data" -v "$PWD/cypherapps/data/logs:/lnurl/logs" -v "/Users/kexkey/dev/cn-dev/dist/cyphernode/gatekeeper/certs/cert.pem:/lnurl/cert.pem:ro" -p 9229:9229 -p 8000:8000 --network cyphernodeappsnet --entrypoint ash lnurl
 
 npx prisma migrate reset
 npx prisma generate
 npx prisma migrate dev
 ```
+
+curl -d '{"id":0,"method":"createLnurlPay","params":{"externalId":"kexkey","minMsatoshi":1000,"maxMsatoshi":1000000000,"description":"Kexkey'"'"'s jar","webhookUrl":"/lnurl/paid-kexkey"}}' -H "Content-Type: application/json" localhost:8000/api
