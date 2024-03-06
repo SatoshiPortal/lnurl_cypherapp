@@ -7,7 +7,7 @@
 date
 
 # Get node2 connection string
-connectstring2=$(echo "$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli getinfo | jq -r ".id")@lightning2")
+connectstring2=$(echo "$(docker exec -it `docker ps -q -f "name=lightning2\."` lightning-cli getinfo | jq -r ".id")@lightning2:9735")
 echo ; echo "connectstring2=${connectstring2}"
 
 # Mine enough blocks
@@ -15,12 +15,12 @@ echo ; echo "connectstring2=${connectstring2}"
 channelmsats=8000000000
 
 # Fund LN node
-#address=$(docker exec -it `docker ps -q -f "name=proxy\."` curl localhost:8888/ln_newaddr | jq -r ".bech32")
-#echo ; echo "address=${address}"
-#data='{"address":"'${address}'","amount":1}'
-#docker exec -it `docker ps -q -f "name=proxy\."` curl -d "${data}" localhost:8888/spend
+address=$(docker exec -it `docker ps -q -f "name=proxy\."` curl localhost:8888/ln_newaddr | jq -r ".bech32")
+echo ; echo "address=${address}"
+data='{"address":"'${address}'","amount":1}'
+docker exec -it `docker ps -q -f "name=proxy\."` curl -d "${data}" localhost:8888/spend
 
-#mine 6
+mine 6
 
 echo ; echo "Sleeping 5 seconds..."
 sleep 5
@@ -34,7 +34,7 @@ echo ; echo "Sleeping 5 seconds..."
 sleep 5
 
 # Make the channel ready
-mine 6
+mine 3
 
 echo ; echo "Sleeping 15 seconds..."
 sleep 15
@@ -56,6 +56,10 @@ echo ; echo "bolt11=${bolt11}"
 data='{"bolt11":'${bolt11}',"expected_msatoshi":'${msats}',"expected_description":"'${desc}'"}'
 echo ; echo "data=${data}"
 docker exec -it `docker ps -q -f "name=proxy\."` curl -d "${data}" localhost:8888/ln_pay
+
+sleep 5
+
+mine 1
 
 echo ; echo "That's all folks!"
 

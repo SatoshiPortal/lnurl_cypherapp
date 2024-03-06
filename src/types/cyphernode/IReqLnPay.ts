@@ -4,6 +4,6 @@ export default interface IReqLnPay {
   // - expected_description, optional, expected description encoded in the bolt11 invoice
 
   bolt11: string;
-  expectedMsatoshi?: number;
-  expectedDescription?: string;
+  expected_msatoshi?: number;
+  expected_description?: string;
 }

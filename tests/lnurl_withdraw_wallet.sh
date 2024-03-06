@@ -104,7 +104,7 @@ call_lnservice_withdraw_request() {
   local url=${1}
   trace 2 "[call_lnservice_withdraw_request] url=${url}"
 
-  local withdrawRequestResponse=$(exec_in_test_container curl -s ${url})
+  local withdrawRequestResponse=$(exec_in_test_container curl -sk ${url})
   trace 2 "[call_lnservice_withdraw_request] withdrawRequestResponse=${withdrawRequestResponse}"
 
   echo "${withdrawRequestResponse}"
@@ -157,7 +157,7 @@ call_lnservice_withdraw() {
 
   trace 2 "\n[call_lnservice_withdraw] ${BCyan}User finally calls LN Service LNURL Withdraw...${Color_Off}"
   trace 2 "[call_lnservice_withdraw] url=${callback}?k1=${k1}\&pr=${bolt11}"
-  withdrawResponse=$(exec_in_test_container curl -s ${callback}?k1=${k1}\&pr=${bolt11})
+  withdrawResponse=$(exec_in_test_container curl -sk ${callback}?k1=${k1}\&pr=${bolt11})
   trace 2 "[call_lnservice_withdraw] withdrawResponse=${withdrawResponse}"
 
   echo "${withdrawResponse}"
