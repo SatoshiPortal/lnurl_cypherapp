@@ -385,8 +385,9 @@ wrong_bolt11() {
   # 1. Create a LNURL Withdraw
   # 2. Get it and compare
   # 3. User calls LNServiceWithdrawRequest
-  # 4. User calls LNServiceWithdraw with wrong bolt11
-  # 5. User calls LNServiceWithdraw with wrong description
+  # 4. User calls LNServiceWithdraw with an invalid bolt11
+  # 5. User calls LNServiceWithdraw with wrong amount in bolt11
+  # 6. User calls LNServiceWithdraw with wrong description in bolt11
 
   trace 1 "\n\n[wrong_bolt11] ${On_Yellow}${BBlack} wrong_bolt11:                                                                     ${Color_Off}\n"
 
@@ -418,6 +419,28 @@ wrong_bolt11() {
   local withdrawRequestResponse=$(call_lnservice_withdraw_request "${serviceUrl}")
   trace 3 "[wrong_bolt11] withdrawRequestResponse=${withdrawRequestResponse}"
 
+  # 4. User calls LNServiceWithdraw with an invalid bolt11
+  local bolt11="invalidbolt11"
+  trace 3 "[wrong_bolt11] bolt11=${bolt11}"
+
+  trace 2 "\n\n[wrong_bolt11] ${BPurple}User calls LN Service Withdraw with an invalid bolt11...\n${Color_Off}"
+
+  # User calls LN Service LNURL Withdraw
+  local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
+  trace 3 "[wrong_bolt11] withdrawResponse=${withdrawResponse}"
+
+  status=$(echo ${withdrawResponse} | jq -r ".status")
+  trace 3 "[wrong_bolt11] status=${status}"
+
+  if [ "${status}" = "ERROR" ]; then
+    trace 1 "\n\n[wrong_bolt11] ${On_IGreen}${BBlack}  wrong_bolt11: SUCCESS!                                                                       ${Color_Off}\n"
+    date
+  else
+    trace 1 "\n\n[wrong_bolt11] ${On_Red}${BBlack}  wrong_bolt11: FAILURE!                                                                         ${Color_Off}\n"
+    date
+    return 1
+  fi
+
   # Create bolt11 with wrong amount for LN Service LNURL Withdraw
   local msatoshi=$(echo "${createLnurlWithdraw}" | jq -r '.result.msatoshi')
   msatoshi=$((${msatoshi}+10))
@@ -431,7 +454,7 @@ wrong_bolt11() {
   local status=$(get_invoice_status "${invoice}")
   trace 3 "[wrong_bolt11] status=${status}"
 
-  trace 2 "\n\n[wrong_bolt11] ${BPurple}User calles LN Service Withdraw with wrong bolt11...\n${Color_Off}"
+  trace 2 "\n\n[wrong_bolt11] ${BPurple}User calls LN Service Withdraw with wrong amount in bolt11...\n${Color_Off}"
 
   # User calls LN Service LNURL Withdraw
   local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
@@ -469,14 +492,14 @@ wrong_bolt11() {
   description="wrong${description}"
   local invoice=$(create_bolt11 "${msatoshi}" "${description}")
   trace 3 "[wrong_bolt11] invoice=${invoice}"
-  local bolt11=$(echo ${invoice} | jq -r ".bolt11")
+  bolt11=$(echo ${invoice} | jq -r ".bolt11")
   trace 3 "[wrong_bolt11] bolt11=${bolt11}"
 
   # We want to see that that invoice is unpaid first...
   local status=$(get_invoice_status "${invoice}")
   trace 3 "[wrong_bolt11] status=${status}"
 
-  trace 2 "\n\n[wrong_bolt11] ${BPurple}User calles LN Service Withdraw with wrong description...\n${Color_Off}"
+  trace 2 "\n\n[wrong_bolt11] ${BPurple}User calls LN Service Withdraw with wrong description in bolt11...\n${Color_Off}"
 
   # User calls LN Service LNURL Withdraw
   local withdrawResponse=$(call_lnservice_withdraw "${withdrawRequestResponse}" "${bolt11}")
@@ -799,6 +822,7 @@ fallback1() {
 
   # Service creates LNURL Withdraw
   local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 0 "" "${btcfallbackaddr}")
+  # local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 0)
   trace 3 "[fallback1] createLnurlWithdraw=${createLnurlWithdraw}"
   local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
   trace 3 "[fallback1] lnurl=${lnurl}"
@@ -885,6 +909,7 @@ fallback2() {
 
   # Service creates LNURL Withdraw with batching true
   local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 0 "" "${btcfallbackaddr}" "true")
+  # local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 0 "" "" "true")
   trace 3 "[fallback2] createLnurlWithdraw=${createLnurlWithdraw}"
   local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
   trace 3 "[fallback2] lnurl=${lnurl}"
@@ -981,6 +1006,7 @@ fallback3() {
 
   # Service creates LNURL Withdraw
   local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 86400 "" "${btcfallbackaddr}")
+  # local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 86400)
   trace 3 "[fallback3] createLnurlWithdraw=${createLnurlWithdraw}"
   local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
   trace 3 "[fallback3] lnurl=${lnurl}"
@@ -1061,6 +1087,7 @@ fallback4() {
 
   # Service creates LNURL Withdraw
   local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 86400 "" "${btcfallbackaddr}")
+  # local createLnurlWithdraw=$(create_lnurl_withdraw "${callbackurl}" 86400)
   trace 3 "[fallback4] createLnurlWithdraw=${createLnurlWithdraw}"
   local lnurl=$(echo "${createLnurlWithdraw}" | jq -r ".result.lnurl")
   trace 3 "[fallback4] lnurl=${lnurl}"

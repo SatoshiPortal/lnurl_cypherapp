@@ -25,6 +25,7 @@ import IRespSpend from "../types/cyphernode/IRespSpend";
 import { LnurlWithdrawEntity } from "@prisma/client";
 import AsyncLock from "async-lock";
 import IReqLnListPays from "../types/cyphernode/IReqLnListPays";
+import IRespLnDecodeBolt11 from "../types/cyphernode/IRespLnDecodeBolt11";
 
 class LnurlWithdraw {
   private _lnurlConfig: LnurlConfig;
@@ -422,15 +423,25 @@ class LnurlWithdraw {
 
     let result;
 
-    lnurlWithdrawEntity.bolt11 = bolt11;
-    const lnPayParams = {
-      bolt11: bolt11,
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      expected_msatoshi: lnurlWithdrawEntity.msatoshi || undefined,
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      expected_description: lnurlWithdrawEntity.description || undefined,
-    };
-    let resp: IRespLnPay = await this._cyphernodeClient.lnPay(lnPayParams);
+    // Let's check if bolt11 is valid first.
+    // If it's valid, we'll try to pay and save the data.
+    // If it's not valid, we'll send an error and won't save the data.
+    let resp:
+      | IRespLnDecodeBolt11
+      | IRespLnPay = await this._cyphernodeClient.lnDecodeBolt11(bolt11);
+
+    if (resp.result) {
+      lnurlWithdrawEntity.bolt11 = bolt11;
+
+      const lnPayParams = {
+        bolt11: bolt11,
+        // eslint-disable-next-line @typescript-eslint/camelcase
+        expected_msatoshi: lnurlWithdrawEntity.msatoshi || undefined,
+        // eslint-disable-next-line @typescript-eslint/camelcase
+        expected_description: lnurlWithdrawEntity.description || undefined,
+      };
+      resp = await this._cyphernodeClient.lnPay(lnPayParams);
+    }
 
     if (resp.error) {
       logger.debug("LnurlWithdraw.processLnPayment, ln_pay error!");
@@ -709,6 +720,10 @@ class LnurlWithdraw {
                     lnurlWithdrawEntity,
                     params.pr,
                     paymentStatus.result
+                  );
+                  logger.debug(
+                    "this.processLnStatus result =",
+                    JSON.stringify(result)
                   );
                 }
               } else {

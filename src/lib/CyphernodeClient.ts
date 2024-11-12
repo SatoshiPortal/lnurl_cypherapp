@@ -21,6 +21,7 @@ import IReqLnListPays from "../types/cyphernode/IReqLnListPays";
 import IRespLnPayStatus from "../types/cyphernode/IRespLnPayStatus";
 import IReqLnCreate from "../types/cyphernode/IReqLnCreate";
 import IRespLnCreate from "../types/cyphernode/IRespLnCreate";
+import IRespLnDecodeBolt11 from "../types/cyphernode/IRespLnDecodeBolt11";
 
 class CyphernodeClient {
   private baseURL: string;
@@ -106,8 +107,14 @@ class CyphernodeClient {
       const response = await axios.request(configs);
       // logger.debug("CyphernodeClient._post :: response:", response);
       // response.data used to be a string, looks like it's now an object... taking no chance.
-      const str = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-      logger.debug("CyphernodeClient._post :: response.data:", str.substring(0, 1000));
+      const str =
+        typeof response.data === "string"
+          ? response.data
+          : JSON.stringify(response.data);
+      logger.debug(
+        "CyphernodeClient._post :: response.data:",
+        str.substring(0, 1000)
+      );
 
       return { status: response.status, data: response.data };
     } catch (err) {
@@ -180,8 +187,14 @@ class CyphernodeClient {
     try {
       const response = await axios.request(configs);
       // response.data used to be a string, looks like it's now an object... taking no chance.
-      const str = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-      logger.debug("CyphernodeClient._get :: response.data:", str.substring(0, 1000));
+      const str =
+        typeof response.data === "string"
+          ? response.data
+          : JSON.stringify(response.data);
+      logger.debug(
+        "CyphernodeClient._get :: response.data:",
+        str.substring(0, 1000)
+      );
 
       return { status: response.status, data: response.data };
     } catch (err) {
@@ -537,7 +550,7 @@ class CyphernodeClient {
       result = {
         error: {
           code: ErrorCodes.InternalError,
-          message: response.data.message,
+          message: JSON.stringify(response.data),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as IResponseError<any>,
       } as IRespLnPay;
@@ -785,6 +798,54 @@ class CyphernodeClient {
 
     let result: IRespLnCreate;
     const response = await this._post("/ln_create_invoice", lnCreate);
+    if (response.status >= 200 && response.status < 400) {
+      result = { result: response.data };
+    } else {
+      result = {
+        error: {
+          code: ErrorCodes.InternalError,
+          message: response.data.message,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as IResponseError<any>,
+      } as IRespLnCreate;
+    }
+    return result;
+  }
+
+  async lnDecodeBolt11(bolt11: string): Promise<IRespLnDecodeBolt11> {
+    // GET http://192.168.111.152:8080/ln_decodebolt11/bolt11
+    // GET http://192.168.111.152:8080/ln_decodebolt11/lntb1pdca82tpp5gv8mn5jqlj6xztpnt4r472zcyrwf3y2c3cvm4uzg2gqcnj90f83qdp2gf5hgcm0d9hzqnm4w3kx2apqdaexgetjyq3nwvpcxgcqp2g3d86wwdfvyxcz7kce7d3n26d2rw3wf5tzpm2m5fl2z3mm8msa3xk8nv2y32gmzlhwjved980mcmkgq83u9wafq9n4w28amnmwzujgqpmapcr3
+
+    // args:
+    // - bolt11, required, lightning network bolt11 invoice
+    //
+    // Example of successful result:
+    //
+    // {
+    //   "currency": "bcrt",
+    //   "created_at": 1731447599,
+    //   "expiry": 604800,
+    //   "payee": "026ec94ffa595479ccd80fe5f0bdf1481dbb8b75b976a5bfe21f0556c6376d549a",
+    //   "amount_msat": 532204,
+    //   "description": "desc32204",
+    //   "min_final_cltv_expiry": 10,
+    //   "payment_secret": "befdced7b0654a16bc3255ef5edea6d0fc5bcae32f4ba2ccbe848317d66d1c48",
+    //   "features": "02024100",
+    //   "payment_hash": "b5b866e84b9fe2e6cf948a89767a70448d80b82b96e6bdf6f9185ec0a2bdc166",
+    //   "signature": "304402207169439ffd3ea345904b91ecc5f891f9513fcdc787e5ef14ef66aa65959864d80220334fb5b83cc61c3ba1feec3c2b72c3e7b95c27780331fd6f1f3bba641c12da92"
+    // }
+    //
+    // Example of failed result:
+    //
+    // {
+    //   code: -1,
+    //   message: 'Invalid bolt11: Bad bech32 string'
+    // }
+
+    logger.info("CyphernodeClient.lnDecodeBolt11:", bolt11);
+
+    let result: IRespLnCreate;
+    const response = await this._get("/ln_decodebolt11/" + bolt11);
     if (response.status >= 200 && response.status < 400) {
       result = { result: response.data };
     } else {
