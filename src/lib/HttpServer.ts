@@ -24,6 +24,7 @@ import IRespLnurlPay from "../types/IRespLnurlPay";
 import IRespLnurlPayRequest from "../types/IRespLnurlPayRequest";
 import IReqUpdateLnurlPay from "../types/IReqUpdateLnurlPay";
 import IRespPayLnAddress from "../types/IRespPayLnAddress";
+import { IReqPayLnAddress } from "../types/IReqPayLnAddress";
 
 class HttpServer {
   // Create a new express application instance

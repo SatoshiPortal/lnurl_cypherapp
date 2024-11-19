@@ -23,6 +23,7 @@ import { LnAddress } from "./LnAddress";
 import IRespPayLnAddress from "../types/IRespPayLnAddress";
 import IRespLnServicePayRequest from "../types/IRespLnServicePayRequest";
 import IRespLnurlPayRequest from "../types/IRespLnurlPayRequest";
+import { IReqPayLnAddress } from "../types/IReqPayLnAddress";
 
 class LnurlPay {
   private _lnurlConfig: LnurlConfig;
@@ -54,8 +55,8 @@ class LnurlPay {
       this._lnurlConfig.LN_SERVICE_DOMAIN +
       ((this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "https" &&
         this._lnurlConfig.LN_SERVICE_PORT === 443) ||
-        (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" &&
-          this._lnurlConfig.LN_SERVICE_PORT === 80)
+      (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" &&
+        this._lnurlConfig.LN_SERVICE_PORT === 80)
         ? ""
         : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
       this._lnurlConfig.LN_SERVICE_CTX +
@@ -731,6 +732,7 @@ class LnurlPay {
     if (bolt11) {
       const lnPayParams = {
         bolt11,
+        // eslint-disable-next-line @typescript-eslint/camelcase
         expected_msatoshi: req.amountMsat,
       };
 
