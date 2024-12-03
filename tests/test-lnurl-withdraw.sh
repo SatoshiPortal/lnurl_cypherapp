@@ -1245,16 +1245,16 @@ exec_in_test_container_leave_lf apk add --update curl
 
 ln_reconnect
 
-# happy_path "${callbackurl}" && \
+happy_path "${callbackurl}" && \
 wrong_bolt11 "${callbackurl}" && \
-# expired1 "${callbackurl}" && \
-# expired2 "${callbackurl}" && \
-# deleted1 "${callbackurl}" && \
-# deleted2 "${callbackurl}" && \
-# fallback1 "${callbackservername}" "${callbackserverport}" && \
-# fallback2 "${callbackservername}" "${callbackserverport}" && \
-# fallback3 "${callbackservername}" "${callbackserverport}" && \
-# fallback4 "${callbackservername}" "${callbackserverport}" && \
+expired1 "${callbackurl}" && \
+expired2 "${callbackurl}" && \
+deleted1 "${callbackurl}" && \
+deleted2 "${callbackurl}" && \
+fallback1 "${callbackservername}" "${callbackserverport}" && \
+fallback2 "${callbackservername}" "${callbackserverport}" && \
+fallback3 "${callbackservername}" "${callbackserverport}" && \
+fallback4 "${callbackservername}" "${callbackserverport}" && \
 trace 1 "\n\n[test-lnurl-withdraw] ${BCyan}All tests passed!${Color_Off}\n"
 
 trace 1 "\n\n[test-lnurl-withdraw] ${BCyan}Tearing down...${Color_Off}\n"
