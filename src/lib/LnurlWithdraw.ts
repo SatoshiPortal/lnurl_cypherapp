@@ -89,6 +89,26 @@ class LnurlWithdraw {
     const response: IRespLnurlWithdraw = {};
 
     if (CreateLnurlWithdrawValidator.validateRequest(reqCreateLnurlWithdraw)) {
+      if (reqCreateLnurlWithdraw.btcFallbackAddress) {
+        const validateAddressResponse = await this._cyphernodeClient.validateAddress(
+          reqCreateLnurlWithdraw.btcFallbackAddress
+        );
+
+        if (!validateAddressResponse.result?.isvalid) {
+          // There is an error with inputs
+          logger.debug(
+            "LnurlWithdraw.createLnurlWithdraw, invalid fallback Bitcoin address."
+          );
+
+          response.error = {
+            code: ErrorCodes.InvalidRequest,
+            message: "Invalid fallback Bitcoin address",
+          };
+
+          return response;
+        }
+      }
+
       // Inputs are valid.
       logger.debug("LnurlWithdraw.createLnurlWithdraw, Inputs are valid.");
 
