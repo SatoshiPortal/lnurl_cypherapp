@@ -10,13 +10,7 @@ class Utils {
     addedOptions?: unknown
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ): Promise<any> {
-    logger.info(
-      "Utils.request",
-      method,
-      url,
-      JSON.stringify(postdata),
-      addedOptions
-    );
+    logger.info("Utils.request", method, url, JSON.stringify(postdata), addedOptions);
 
     let configs: AxiosRequestConfig = {
       baseURL: url,
@@ -29,10 +23,7 @@ class Utils {
 
     try {
       const response = await axios.request(configs);
-      logger.debug(
-        "Utils.request :: response.data =",
-        JSON.stringify(response.data)
-      );
+      logger.debug("Utils.request :: response.data =", JSON.stringify(response.data));
 
       return { status: response.status, data: response.data };
     } catch (err) {
@@ -42,18 +33,9 @@ class Utils {
         if (error.response) {
           // The request was made and the server responded with a status code
           // that falls out of the range of 2xx
-          logger.info(
-            "Utils.request :: error.response.data =",
-            JSON.stringify(error.response.data)
-          );
-          logger.info(
-            "Utils.request :: error.response.status =",
-            error.response.status
-          );
-          logger.info(
-            "Utils.request :: error.response.headers =",
-            error.response.headers
-          );
+          logger.info("Utils.request :: error.response.data =", JSON.stringify(error.response.data));
+          logger.info("Utils.request :: error.response.status =", error.response.status);
+          logger.info("Utils.request :: error.response.headers =", error.response.headers);
 
           return { status: error.response.status, data: error.response.data };
         } else if (error.request) {
@@ -93,11 +75,7 @@ class Utils {
   static async encodeBech32(str: string): Promise<string> {
     logger.info("Utils.encodeBech32:", str);
 
-    const lnurlBech32 = bech32.encode(
-      "LNURL",
-      bech32.toWords(Buffer.from(str, "utf8")),
-      2000
-    );
+    const lnurlBech32 = bech32.encode("LNURL", bech32.toWords(Buffer.from(str, "utf8")), 2000);
     logger.debug("lnurlBech32:", lnurlBech32);
 
     return lnurlBech32.toUpperCase();
@@ -106,9 +84,7 @@ class Utils {
   static async decodeBech32(str: string): Promise<string> {
     logger.info("Utils.decodeBech32:", str);
 
-    const lnurl = Buffer.from(
-      bech32.fromWords(bech32.decode(str, 2000).words)
-    ).toString();
+    const lnurl = Buffer.from(bech32.fromWords(bech32.decode(str, 2000).words)).toString();
 
     return lnurl;
   }

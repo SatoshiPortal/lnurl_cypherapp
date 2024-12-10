@@ -10,7 +10,7 @@
     "prettier/prettier": [
       "error",
       {
-        "printWidth": 80
+        "printWidth": 132
       }
     ],
     "@typescript-eslint/interface-name-prefix": [

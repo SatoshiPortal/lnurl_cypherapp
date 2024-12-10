@@ -5,10 +5,7 @@ import LnurlConfig from "../config/LnurlConfig";
 import fs from "fs";
 import { LnurlWithdraw } from "./LnurlWithdraw";
 import { LnurlPay } from "./LnurlPay";
-import {
-  IResponseMessage,
-  ErrorCodes,
-} from "../types/jsonrpc/IResponseMessage";
+import { IResponseMessage, ErrorCodes } from "../types/jsonrpc/IResponseMessage";
 import { IRequestMessage } from "../types/jsonrpc/IRequestMessage";
 import { Utils } from "./Utils";
 import IRespCreateLnurlWithdraw from "../types/IRespLnurlWithdraw";
@@ -29,9 +26,7 @@ import { IReqPayLnAddress } from "../types/IReqPayLnAddress";
 class HttpServer {
   // Create a new express application instance
   private readonly _httpServer: express.Application = express();
-  private _lnurlConfig: LnurlConfig = JSON.parse(
-    fs.readFileSync("data/config.json", "utf8")
-  );
+  private _lnurlConfig: LnurlConfig = JSON.parse(fs.readFileSync("data/config.json", "utf8"));
   private _lnurlWithdraw: LnurlWithdraw = new LnurlWithdraw(this._lnurlConfig);
   private _lnurlPay: LnurlPay = new LnurlPay(this._lnurlConfig);
 
@@ -49,21 +44,15 @@ class HttpServer {
     this._lnurlPay.configureLnurl(this._lnurlConfig);
   }
 
-  async createLnurlWithdraw(
-    params: object | undefined
-  ): Promise<IRespCreateLnurlWithdraw> {
+  async createLnurlWithdraw(params: object | undefined): Promise<IRespCreateLnurlWithdraw> {
     logger.debug("/createLnurlWithdraw params:", params);
 
     const reqCreateLnurlWithdraw: IReqCreateLnurlWithdraw = params as IReqCreateLnurlWithdraw;
 
-    return await this._lnurlWithdraw.createLnurlWithdraw(
-      reqCreateLnurlWithdraw
-    );
+    return await this._lnurlWithdraw.createLnurlWithdraw(reqCreateLnurlWithdraw);
   }
 
-  async deleteLnurlWithdraw(
-    params: object | undefined
-  ): Promise<IRespCreateLnurlWithdraw> {
+  async deleteLnurlWithdraw(params: object | undefined): Promise<IRespCreateLnurlWithdraw> {
     logger.debug("/deleteLnurlWithdraw params:", params);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,9 +61,7 @@ class HttpServer {
     return await this._lnurlWithdraw.deleteLnurlWithdraw(lnurlWithdrawId);
   }
 
-  async forceFallback(
-    params: object | undefined
-  ): Promise<IRespCreateLnurlWithdraw> {
+  async forceFallback(params: object | undefined): Promise<IRespCreateLnurlWithdraw> {
     logger.debug("/forceFallback params:", params);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,9 +70,7 @@ class HttpServer {
     return await this._lnurlWithdraw.forceFallback(lnurlWithdrawId);
   }
 
-  async getLnurlWithdraw(
-    params: object | undefined
-  ): Promise<IRespCreateLnurlWithdraw> {
+  async getLnurlWithdraw(params: object | undefined): Promise<IRespCreateLnurlWithdraw> {
     logger.debug("/getLnurlWithdraw params:", params);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -94,9 +79,7 @@ class HttpServer {
     return await this._lnurlWithdraw.getLnurlWithdraw(lnurlWithdrawId);
   }
 
-  async createLnurlPay(
-    params: object | undefined
-  ): Promise<IRespCreateLnurlPay> {
+  async createLnurlPay(params: object | undefined): Promise<IRespCreateLnurlPay> {
     logger.debug("/createLnurlPay params:", params);
 
     const reqCreateLnurlPay: IReqCreateLnurlPay = params as IReqCreateLnurlPay;
@@ -130,9 +113,7 @@ class HttpServer {
     return await this._lnurlPay.getLnurlPay(lnurlPayId);
   }
 
-  async deleteLnurlPayRequest(
-    params: object | undefined
-  ): Promise<IRespLnurlPayRequest> {
+  async deleteLnurlPayRequest(params: object | undefined): Promise<IRespLnurlPayRequest> {
     logger.debug("/deleteLnurlPayRequest params:", params);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -141,9 +122,7 @@ class HttpServer {
     return await this._lnurlPay.deleteLnurlPayRequest(lnurlPayRequestId);
   }
 
-  async getLnurlPayRequest(
-    params: object | undefined
-  ): Promise<IRespLnurlPayRequest> {
+  async getLnurlPayRequest(params: object | undefined): Promise<IRespLnurlPayRequest> {
     logger.debug("/getLnurlPayRequest params:", params);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -179,27 +158,21 @@ class HttpServer {
       // Check the method and call the corresponding function
       switch (reqMessage.method) {
         case "createLnurlWithdraw": {
-          const result: IRespCreateLnurlWithdraw = await this.createLnurlWithdraw(
-            reqMessage.params || {}
-          );
+          const result: IRespCreateLnurlWithdraw = await this.createLnurlWithdraw(reqMessage.params || {});
           response.result = result.result;
           response.error = result.error;
           break;
         }
 
         case "getLnurlWithdraw": {
-          const result: IRespCreateLnurlWithdraw = await this.getLnurlWithdraw(
-            reqMessage.params || {}
-          );
+          const result: IRespCreateLnurlWithdraw = await this.getLnurlWithdraw(reqMessage.params || {});
           response.result = result.result;
           response.error = result.error;
           break;
         }
 
         case "deleteLnurlWithdraw": {
-          const result: IRespCreateLnurlWithdraw = await this.deleteLnurlWithdraw(
-            reqMessage.params || {}
-          );
+          const result: IRespCreateLnurlWithdraw = await this.deleteLnurlWithdraw(reqMessage.params || {});
 
           response.result = result.result;
           response.error = result.error;
@@ -207,36 +180,28 @@ class HttpServer {
         }
 
         case "createLnurlPay": {
-          const result: IRespCreateLnurlPay = await this.createLnurlPay(
-            reqMessage.params || {}
-          );
+          const result: IRespCreateLnurlPay = await this.createLnurlPay(reqMessage.params || {});
           response.result = result.result;
           response.error = result.error;
           break;
         }
 
         case "updateLnurlPay": {
-          const result: IRespLnurlPay = await this.updateLnurlPay(
-            reqMessage.params || {}
-          );
+          const result: IRespLnurlPay = await this.updateLnurlPay(reqMessage.params || {});
           response.result = result.result;
           response.error = result.error;
           break;
         }
 
         case "getLnurlPay": {
-          const result: IRespLnurlPay = await this.getLnurlPay(
-            reqMessage.params || {}
-          );
+          const result: IRespLnurlPay = await this.getLnurlPay(reqMessage.params || {});
           response.result = result.result;
           response.error = result.error;
           break;
         }
 
         case "deleteLnurlPay": {
-          const result: IRespLnurlPay = await this.deleteLnurlPay(
-            reqMessage.params || {}
-          );
+          const result: IRespLnurlPay = await this.deleteLnurlPay(reqMessage.params || {});
 
           response.result = result.result;
           response.error = result.error;
@@ -244,27 +209,21 @@ class HttpServer {
         }
 
         case "getLnurlPayRequest": {
-          const result: IRespLnurlPayRequest = await this.getLnurlPayRequest(
-            reqMessage.params || {}
-          );
+          const result: IRespLnurlPayRequest = await this.getLnurlPayRequest(reqMessage.params || {});
           response.result = result.result;
           response.error = result.error;
           break;
         }
 
         case "deleteLnurlPayRequest": {
-          const result: IRespLnurlPayRequest = await this.getLnurlPayRequest(
-            reqMessage.params || {}
-          );
+          const result: IRespLnurlPayRequest = await this.getLnurlPayRequest(reqMessage.params || {});
           response.result = result.result;
           response.error = result.error;
           break;
         }
 
         case "payLnAddress": {
-          const result: IRespPayLnAddress = await this.payLnAddress(
-            reqMessage.params || {}
-          );
+          const result: IRespPayLnAddress = await this.payLnAddress(reqMessage.params || {});
           response.result = result.result;
           response.error = result.error;
           break;
@@ -285,9 +244,7 @@ class HttpServer {
         }
 
         case "forceFallback": {
-          const result: IRespCreateLnurlWithdraw = await this.forceFallback(
-            reqMessage.params || {}
-          );
+          const result: IRespCreateLnurlWithdraw = await this.forceFallback(reqMessage.params || {});
 
           response.result = result.result;
           response.error = result.error;
@@ -339,14 +296,9 @@ class HttpServer {
       // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX,
       async (req, res) => {
-        logger.info(
-          this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX + ":",
-          req.query
-        );
+        logger.info(this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX + ":", req.query);
 
-        const response: IRespLnServiceWithdrawRequest = await this._lnurlWithdraw.lnServiceWithdrawRequest(
-          req.query.s as string
-        );
+        const response: IRespLnServiceWithdrawRequest = await this._lnurlWithdraw.lnServiceWithdrawRequest(req.query.s as string);
 
         if (response.status) {
           res.status(400).json(response);
@@ -382,10 +334,7 @@ class HttpServer {
       // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX + "/:externalId",
       async (req, res) => {
-        logger.info(
-          this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX + ":",
-          req.params
-        );
+        logger.info(this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX + ":", req.params);
 
         const response = await this._lnurlPay.lnServicePaySpecs({
           externalId: req.params.externalId,
@@ -400,32 +349,26 @@ class HttpServer {
     );
 
     // LN Service LNURL Pay specs (step 3) lightning address format
-    this._httpServer.get(
-      "/.well-known/lnurlp/:externalId",
-      async (req, res) => {
-        logger.info("/.well-known/lnurlp/:", req.params);
+    this._httpServer.get("/.well-known/lnurlp/:externalId", async (req, res) => {
+      logger.info("/.well-known/lnurlp/:", req.params);
 
-        const response = await this._lnurlPay.lnServicePaySpecs({
-          externalId: req.params.externalId,
-        } as IReqViewLnurlPay);
+      const response = await this._lnurlPay.lnServicePaySpecs({
+        externalId: req.params.externalId,
+      } as IReqViewLnurlPay);
 
-        if (response.status === "ERROR") {
-          res.status(400).json(response);
-        } else {
-          res.status(200).json(response);
-        }
+      if (response.status === "ERROR") {
+        res.status(400).json(response);
+      } else {
+        res.status(200).json(response);
       }
-    );
+    });
 
     // LN Service LNURL Pay request (step 5)
     this._httpServer.get(
       // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX + "/:externalId",
       async (req, res) => {
-        logger.info(
-          this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX + ":",
-          req.params
-        );
+        logger.info(this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX + ":", req.params);
 
         const response = await this._lnurlPay.lnServicePayRequest({
           externalId: req.params.externalId,
@@ -459,31 +402,20 @@ class HttpServer {
       }
     );
 
-    this._httpServer.post(
-      this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS,
-      async (req, res) => {
-        logger.info(
-          this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS + ":",
-          req.body
-        );
+    this._httpServer.post(this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS, async (req, res) => {
+      logger.info(this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS + ":", req.body);
 
-        const response = await this._lnurlWithdraw.processBatchWebhook(
-          req.body
-        );
+      const response = await this._lnurlWithdraw.processBatchWebhook(req.body);
 
-        if (response.error) {
-          res.status(400).json(response);
-        } else {
-          res.status(200).json(response);
-        }
+      if (response.error) {
+        res.status(400).json(response);
+      } else {
+        res.status(200).json(response);
       }
-    );
+    });
 
     this._httpServer.listen(this._lnurlConfig.URL_API_PORT, () => {
-      logger.info(
-        "Express HTTP server listening on port:",
-        this._lnurlConfig.URL_API_PORT
-      );
+      logger.info("Express HTTP server listening on port:", this._lnurlConfig.URL_API_PORT);
     });
   }
 }

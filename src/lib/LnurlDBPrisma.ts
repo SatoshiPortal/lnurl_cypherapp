@@ -1,12 +1,7 @@
 import logger from "./Log2File";
 import path from "path";
 import LnurlConfig from "../config/LnurlConfig";
-import {
-  LnurlPayEntity,
-  LnurlPayRequestEntity,
-  LnurlWithdrawEntity,
-  PrismaClient,
-} from "@prisma/client";
+import { LnurlPayEntity, LnurlPayRequestEntity, LnurlWithdrawEntity, PrismaClient } from "@prisma/client";
 import { SaveLnurlPayRequestWhere } from "../types/SaveLnurlPayRequestWhere";
 
 class LnurlDBPrisma {
@@ -20,13 +15,7 @@ class LnurlDBPrisma {
     logger.info("LnurlDBPrisma.configureDB", lnurlConfig);
 
     await this._db?.$disconnect();
-    this._db = await this.initDatabase(
-      path.resolve(
-        lnurlConfig.BASE_DIR,
-        lnurlConfig.DATA_DIR,
-        lnurlConfig.DB_NAME
-      )
-    );
+    this._db = await this.initDatabase(path.resolve(lnurlConfig.BASE_DIR, lnurlConfig.DATA_DIR, lnurlConfig.DB_NAME));
   }
 
   async initDatabase(dbName: string): Promise<PrismaClient> {
@@ -43,9 +32,7 @@ class LnurlDBPrisma {
     });
   }
 
-  async saveLnurlWithdraw(
-    lnurlWithdrawEntity: LnurlWithdrawEntity
-  ): Promise<LnurlWithdrawEntity> {
+  async saveLnurlWithdraw(lnurlWithdrawEntity: LnurlWithdrawEntity): Promise<LnurlWithdrawEntity> {
     const lw = await this._db?.lnurlWithdrawEntity.upsert({
       where: { secretToken: lnurlWithdrawEntity.secretToken },
       update: lnurlWithdrawEntity,
@@ -55,9 +42,7 @@ class LnurlDBPrisma {
     return lw as LnurlWithdrawEntity;
   }
 
-  async getLnurlWithdrawBySecret(
-    secretToken: string
-  ): Promise<LnurlWithdrawEntity> {
+  async getLnurlWithdrawBySecret(secretToken: string): Promise<LnurlWithdrawEntity> {
     const lw = await this._db?.lnurlWithdrawEntity.findUnique({
       where: { secretToken },
     });
@@ -65,9 +50,7 @@ class LnurlDBPrisma {
     return lw as LnurlWithdrawEntity;
   }
 
-  async getLnurlWithdrawByBatchRequestId(
-    batchRequestId: number
-  ): Promise<LnurlWithdrawEntity> {
+  async getLnurlWithdrawByBatchRequestId(batchRequestId: number): Promise<LnurlWithdrawEntity> {
     const lw = await this._db?.lnurlWithdrawEntity.findUnique({
       where: { batchRequestId },
     });
@@ -75,9 +58,7 @@ class LnurlDBPrisma {
     return lw as LnurlWithdrawEntity;
   }
 
-  async getLnurlWithdraw(
-    lnurlWithdrawEntity: LnurlWithdrawEntity
-  ): Promise<LnurlWithdrawEntity> {
+  async getLnurlWithdraw(lnurlWithdrawEntity: LnurlWithdrawEntity): Promise<LnurlWithdrawEntity> {
     const lw = await this._db?.lnurlWithdrawEntity.findUnique({
       where: { lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId },
     });
@@ -85,9 +66,7 @@ class LnurlDBPrisma {
     return lw as LnurlWithdrawEntity;
   }
 
-  async getLnurlWithdrawById(
-    lnurlWithdrawId: number
-  ): Promise<LnurlWithdrawEntity> {
+  async getLnurlWithdrawById(lnurlWithdrawId: number): Promise<LnurlWithdrawEntity> {
     const lw = await this._db?.lnurlWithdrawEntity.findUnique({
       where: { lnurlWithdrawId: lnurlWithdrawId },
     });
@@ -96,7 +75,6 @@ class LnurlDBPrisma {
   }
 
   async getNonCalledbackLnurlWithdraws(lnurlWithdrawId?: number): Promise<LnurlWithdrawEntity[]> {
-
     // If there's a lnurlWithdrawId as arg, let's add it to the where clause!
 
     // We want to get all the lnurlWithdraws that:
@@ -145,10 +123,7 @@ class LnurlDBPrisma {
         paid: false,
         expiresAt: { lt: new Date() },
         fallbackDone: false,
-        AND: [
-          { NOT: { btcFallbackAddress: null } },
-          { NOT: { btcFallbackAddress: "" } },
-        ],
+        AND: [{ NOT: { btcFallbackAddress: null } }, { NOT: { btcFallbackAddress: "" } }],
       },
     });
 
@@ -181,9 +156,7 @@ class LnurlDBPrisma {
     return lw as LnurlPayEntity;
   }
 
-  async saveLnurlPayRequest(
-    lnurlPayRequestEntity: LnurlPayRequestEntity
-  ): Promise<LnurlPayRequestEntity> {
+  async saveLnurlPayRequest(lnurlPayRequestEntity: LnurlPayRequestEntity): Promise<LnurlPayRequestEntity> {
     const where: SaveLnurlPayRequestWhere = {};
     if (lnurlPayRequestEntity.lnurlPayRequestId) {
       where.lnurlPayRequestId = lnurlPayRequestEntity.lnurlPayRequestId;
@@ -200,9 +173,7 @@ class LnurlDBPrisma {
     return lw as LnurlPayRequestEntity;
   }
 
-  async getLnurlPayRequestById(
-    lnurlPayRequestId: number
-  ): Promise<LnurlPayRequestEntity> {
+  async getLnurlPayRequestById(lnurlPayRequestId: number): Promise<LnurlPayRequestEntity> {
     const lw = await this._db?.lnurlPayRequestEntity.findUnique({
       where: { lnurlPayRequestId: lnurlPayRequestId },
     });
@@ -210,9 +181,7 @@ class LnurlDBPrisma {
     return lw as LnurlPayRequestEntity;
   }
 
-  async getLnurlPayRequestByLabel(
-    bolt11Label: string
-  ): Promise<LnurlPayRequestEntity> {
+  async getLnurlPayRequestByLabel(bolt11Label: string): Promise<LnurlPayRequestEntity> {
     const lw = await this._db?.lnurlPayRequestEntity.findUnique({
       where: { bolt11Label },
     });
@@ -220,9 +189,7 @@ class LnurlDBPrisma {
     return lw as LnurlPayRequestEntity;
   }
 
-  async getLnurlPayRequestByPayId(
-    lnurlPayId: number
-  ): Promise<LnurlPayRequestEntity[]> {
+  async getLnurlPayRequestByPayId(lnurlPayId: number): Promise<LnurlPayRequestEntity[]> {
     const lw = await this._db?.lnurlPayRequestEntity.findMany({
       where: { lnurlPayEntityId: lnurlPayId },
     });

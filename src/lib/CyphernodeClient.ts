@@ -53,11 +53,7 @@ class CyphernodeClient {
     const p = '{"id":"' + this.apiId + '","exp":' + current + "}";
     const re1 = /\+/g;
     const re2 = /\//g;
-    const p64 = Buffer.from(p)
-      .toString("base64")
-      .replace(re1, "-")
-      .replace(re2, "_")
-      .split("=")[0];
+    const p64 = Buffer.from(p).toString("base64").replace(re1, "-").replace(re2, "_").split("=")[0];
     const msg = this.h64 + "." + p64;
     const s = crypto
       .createHmac("sha256", this.apiKey)
@@ -108,14 +104,8 @@ class CyphernodeClient {
       const response = await axios.request(configs);
       // logger.debug("CyphernodeClient._post :: response:", response);
       // response.data used to be a string, looks like it's now an object... taking no chance.
-      const str =
-        typeof response.data === "string"
-          ? response.data
-          : JSON.stringify(response.data);
-      logger.debug(
-        "CyphernodeClient._post :: response.data:",
-        str.substring(0, 1000)
-      );
+      const str = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+      logger.debug("CyphernodeClient._post :: response.data:", str.substring(0, 1000));
 
       return { status: response.status, data: response.data };
     } catch (err) {
@@ -127,28 +117,16 @@ class CyphernodeClient {
         if (error.response) {
           // The request was made and the server responded with a status code
           // that falls out of the range of 2xx
-          logger.info(
-            "CyphernodeClient._post :: error.response.data:",
-            error.response.data
-          );
-          logger.info(
-            "CyphernodeClient._post :: error.response.status:",
-            error.response.status
-          );
-          logger.info(
-            "CyphernodeClient._post :: error.response.headers:",
-            error.response.headers
-          );
+          logger.info("CyphernodeClient._post :: error.response.data:", error.response.data);
+          logger.info("CyphernodeClient._post :: error.response.status:", error.response.status);
+          logger.info("CyphernodeClient._post :: error.response.headers:", error.response.headers);
 
           return { status: error.response.status, data: error.response.data };
         } else if (error.request) {
           // The request was made but no response was received
           // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
           // http.ClientRequest in node.js
-          logger.info(
-            "CyphernodeClient._post :: error.message:",
-            error.message
-          );
+          logger.info("CyphernodeClient._post :: error.message:", error.message);
 
           return { status: -1, data: error.message };
         } else {
@@ -188,14 +166,8 @@ class CyphernodeClient {
     try {
       const response = await axios.request(configs);
       // response.data used to be a string, looks like it's now an object... taking no chance.
-      const str =
-        typeof response.data === "string"
-          ? response.data
-          : JSON.stringify(response.data);
-      logger.debug(
-        "CyphernodeClient._get :: response.data:",
-        str.substring(0, 1000)
-      );
+      const str = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+      logger.debug("CyphernodeClient._get :: response.data:", str.substring(0, 1000));
 
       return { status: response.status, data: response.data };
     } catch (err) {
@@ -205,18 +177,9 @@ class CyphernodeClient {
         if (error.response) {
           // The request was made and the server responded with a status code
           // that falls out of the range of 2xx
-          logger.info(
-            "CyphernodeClient._get :: error.response.data:",
-            error.response.data
-          );
-          logger.info(
-            "CyphernodeClient._get :: error.response.status:",
-            error.response.status
-          );
-          logger.info(
-            "CyphernodeClient._get :: error.response.headers:",
-            error.response.headers
-          );
+          logger.info("CyphernodeClient._get :: error.response.data:", error.response.data);
+          logger.info("CyphernodeClient._get :: error.response.status:", error.response.status);
+          logger.info("CyphernodeClient._get :: error.response.headers:", error.response.headers);
 
           return { status: error.response.status, data: error.response.data };
         } else if (error.request) {
@@ -316,9 +279,7 @@ class CyphernodeClient {
     return result;
   }
 
-  async getBatchDetails(
-    batchIdent: IReqGetBatchDetails
-  ): Promise<IRespGetBatchDetails> {
+  async getBatchDetails(batchIdent: IReqGetBatchDetails): Promise<IRespGetBatchDetails> {
     // POST (GET) http://192.168.111.152:8080/getbatchdetails
     //
     // args:
@@ -551,9 +512,7 @@ class CyphernodeClient {
       result = {
         error: {
           code: ErrorCodes.InternalError,
-          message: response.data.message
-            ? response.data.message
-            : JSON.stringify(response.data),
+          message: response.data.message ? response.data.message : JSON.stringify(response.data),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as IResponseError<any>,
       } as IRespLnPay;

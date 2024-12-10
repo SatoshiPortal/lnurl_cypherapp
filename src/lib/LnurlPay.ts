@@ -53,28 +53,19 @@ class LnurlPay {
       this._lnurlConfig.LN_SERVICE_SCHEME +
       "://" +
       this._lnurlConfig.LN_SERVICE_DOMAIN +
-      ((this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "https" &&
-        this._lnurlConfig.LN_SERVICE_PORT === 443) ||
-      (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" &&
-        this._lnurlConfig.LN_SERVICE_PORT === 80)
+      ((this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "https" && this._lnurlConfig.LN_SERVICE_PORT === 443) ||
+      (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" && this._lnurlConfig.LN_SERVICE_PORT === 80)
         ? ""
         : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
       this._lnurlConfig.LN_SERVICE_CTX +
-      (req
-        ? this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX
-        : this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX) +
+      (req ? this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX : this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX) +
       "/" +
       externalId
     );
   }
 
-  async createLnurlPay(
-    reqCreateLnurlPay: IReqCreateLnurlPay
-  ): Promise<IRespLnurlPay> {
-    logger.info(
-      "LnurlPay.createLnurlPay, reqCreateLnurlPay:",
-      reqCreateLnurlPay
-    );
+  async createLnurlPay(reqCreateLnurlPay: IReqCreateLnurlPay): Promise<IRespLnurlPay> {
+    logger.info("LnurlPay.createLnurlPay, reqCreateLnurlPay:", reqCreateLnurlPay);
 
     const response: IRespLnurlPay = {};
 
@@ -105,10 +96,7 @@ class LnurlPay {
       }
 
       if (lnurlPayEntity) {
-        logger.debug(
-          "LnurlPay.createLnurlPay, lnurlPay created:",
-          lnurlPayEntity
-        );
+        logger.debug("LnurlPay.createLnurlPay, lnurlPay created:", lnurlPayEntity);
 
         response.result = Object.assign(lnurlPayEntity, {
           lnurlDecoded,
@@ -135,13 +123,8 @@ class LnurlPay {
     return response;
   }
 
-  async updateLnurlPay(
-    reqUpdateLnurlPay: IReqUpdateLnurlPay
-  ): Promise<IRespLnurlPay> {
-    logger.info(
-      "LnurlPay.updateLnurlPay, reqCreateLnurlPay:",
-      reqUpdateLnurlPay
-    );
+  async updateLnurlPay(reqUpdateLnurlPay: IReqUpdateLnurlPay): Promise<IRespLnurlPay> {
+    logger.info("LnurlPay.updateLnurlPay, reqCreateLnurlPay:", reqUpdateLnurlPay);
 
     const response: IRespLnurlPay = {};
 
@@ -149,15 +132,11 @@ class LnurlPay {
       // Inputs are valid.
       logger.debug("LnurlPay.updateLnurlPay, Inputs are valid.");
 
-      let lnurlPayEntity: LnurlPayEntity = await this._lnurlDB.getLnurlPayById(
-        reqUpdateLnurlPay.lnurlPayId
-      );
+      let lnurlPayEntity: LnurlPayEntity = await this._lnurlDB.getLnurlPayById(reqUpdateLnurlPay.lnurlPayId);
 
       if (lnurlPayEntity) {
         try {
-          lnurlPayEntity = await this._lnurlDB.saveLnurlPay(
-            Object.assign(lnurlPayEntity, reqUpdateLnurlPay)
-          );
+          lnurlPayEntity = await this._lnurlDB.saveLnurlPay(Object.assign(lnurlPayEntity, reqUpdateLnurlPay));
         } catch (ex) {
           logger.debug("ex:", ex);
 
@@ -170,10 +149,7 @@ class LnurlPay {
         }
 
         if (lnurlPayEntity) {
-          logger.debug(
-            "LnurlPay.createLnurlPay, lnurlPay created:",
-            lnurlPayEntity
-          );
+          logger.debug("LnurlPay.createLnurlPay, lnurlPay created:", lnurlPayEntity);
 
           const lnurlDecoded = await Utils.decodeBech32(lnurlPayEntity.lnurl);
 
@@ -235,25 +211,19 @@ class LnurlPay {
               message: "LnurlPay not found",
             };
           } else if (!lnurlPayEntity.deleted) {
-            logger.debug(
-              "LnurlPay.deleteLnurlPay, unpaid lnurlPayEntity found for this lnurlPayId!"
-            );
+            logger.debug("LnurlPay.deleteLnurlPay, unpaid lnurlPayEntity found for this lnurlPayId!");
 
             lnurlPayEntity.deleted = true;
             lnurlPayEntity = await this._lnurlDB.saveLnurlPay(lnurlPayEntity);
 
-            const lnurlDecoded = await Utils.decodeBech32(
-              lnurlPayEntity?.lnurl || ""
-            );
+            const lnurlDecoded = await Utils.decodeBech32(lnurlPayEntity?.lnurl || "");
 
             response.result = Object.assign(lnurlPayEntity, {
               lnurlDecoded,
             });
           } else {
             // LnurlPay already deactivated
-            logger.debug(
-              "LnurlPay.deleteLnurlPay, LnurlPay already deactivated."
-            );
+            logger.debug("LnurlPay.deleteLnurlPay, LnurlPay already deactivated.");
 
             response.error = {
               code: ErrorCodes.InvalidRequest,
@@ -262,9 +232,7 @@ class LnurlPay {
           }
         } else {
           // There is an error with inputs
-          logger.debug(
-            "LnurlPay.deleteLnurlPay, there is an error with inputs."
-          );
+          logger.debug("LnurlPay.deleteLnurlPay, there is an error with inputs.");
 
           response.error = {
             code: ErrorCodes.InvalidRequest,
@@ -291,13 +259,9 @@ class LnurlPay {
       const lnurlPayEntity = await this._lnurlDB.getLnurlPayById(lnurlPayId);
 
       if (lnurlPayEntity != null) {
-        logger.debug(
-          "LnurlPay.getLnurlPay, lnurlPayEntity found for this lnurlPayId!"
-        );
+        logger.debug("LnurlPay.getLnurlPay, lnurlPayEntity found for this lnurlPayId!");
 
-        const lnurlDecoded = await Utils.decodeBech32(
-          lnurlPayEntity.lnurl || ""
-        );
+        const lnurlDecoded = await Utils.decodeBech32(lnurlPayEntity.lnurl || "");
 
         response.result = Object.assign(lnurlPayEntity, {
           lnurlDecoded,
@@ -327,25 +291,18 @@ class LnurlPay {
   /**
    * Called by user's wallet to get Payment specs
    */
-  async lnServicePaySpecs(
-    reqViewLnurlPay: IReqViewLnurlPay
-  ): Promise<IRespLnServicePaySpecs> {
+  async lnServicePaySpecs(reqViewLnurlPay: IReqViewLnurlPay): Promise<IRespLnServicePaySpecs> {
     logger.info("LnurlPay.viewLnurlPay, reqViewLnurlPay:", reqViewLnurlPay);
 
     let response: IRespLnServicePaySpecs = {};
-    const lnurlPay: LnurlPayEntity = await this._lnurlDB.getLnurlPayByExternalId(
-      reqViewLnurlPay.externalId
-    );
+    const lnurlPay: LnurlPayEntity = await this._lnurlDB.getLnurlPayByExternalId(reqViewLnurlPay.externalId);
 
     if (lnurlPay) {
       if (!lnurlPay.deleted) {
         if (lnurlPay.externalId) {
           const metadata = JSON.stringify([
             ["text/plain", lnurlPay.description],
-            [
-              "text/identifier",
-              `${lnurlPay.externalId}@${this._lnurlConfig.LN_SERVICE_DOMAIN}`,
-            ],
+            ["text/identifier", `${lnurlPay.externalId}@${this._lnurlConfig.LN_SERVICE_DOMAIN}`],
           ]);
 
           logger.info("metadata =", metadata);
@@ -386,36 +343,21 @@ class LnurlPay {
   /**
    * Called by user's wallet to ultimately get the bolt11 invoice
    */
-  async lnServicePayRequest(
-    reqCreateLnurlPayReq: IReqCreateLnurlPayRequest
-  ): Promise<IRespLnServicePayRequest> {
-    logger.info(
-      "LnurlPay.createLnurlPayRequest, reqCreateLnurlPayReq:",
-      reqCreateLnurlPayReq
-    );
+  async lnServicePayRequest(reqCreateLnurlPayReq: IReqCreateLnurlPayRequest): Promise<IRespLnServicePayRequest> {
+    logger.info("LnurlPay.createLnurlPayRequest, reqCreateLnurlPayReq:", reqCreateLnurlPayReq);
 
     let response: IRespLnServicePayRequest = {};
-    const lnurlPay: LnurlPayEntity = await this._lnurlDB.getLnurlPayByExternalId(
-      reqCreateLnurlPayReq.externalId
-    );
+    const lnurlPay: LnurlPayEntity = await this._lnurlDB.getLnurlPayByExternalId(reqCreateLnurlPayReq.externalId);
 
     if (lnurlPay) {
       if (!lnurlPay.deleted) {
-        if (
-          CreateLnurlPayRequestValidator.validateRequest(
-            lnurlPay,
-            reqCreateLnurlPayReq
-          )
-        ) {
+        if (CreateLnurlPayRequestValidator.validateRequest(lnurlPay, reqCreateLnurlPayReq)) {
           // Inputs are valid.
           logger.debug("LnurlPay.createLnurlPayRequest, Inputs are valid.");
 
           const metadata = JSON.stringify([
             ["text/plain", lnurlPay.description],
-            [
-              "text/identifier",
-              `${lnurlPay.externalId}@${this._lnurlConfig.LN_SERVICE_DOMAIN}`,
-            ],
+            ["text/identifier", `${lnurlPay.externalId}@${this._lnurlConfig.LN_SERVICE_DOMAIN}`],
           ]);
           logger.debug("metadata =", metadata);
 
@@ -435,14 +377,9 @@ class LnurlPay {
             deschashonly: true,
           };
 
-          logger.debug(
-            "LnurlPay.createLnurlPayRequest trying to get invoice",
-            lnCreateParams
-          );
+          logger.debug("LnurlPay.createLnurlPayRequest trying to get invoice", lnCreateParams);
 
-          const resp: IRespLnCreate = await this._cyphernodeClient.lnCreate(
-            lnCreateParams
-          );
+          const resp: IRespLnCreate = await this._cyphernodeClient.lnCreate(lnCreateParams);
           logger.debug("LnurlPay.createLnurlPayRequest lnCreate invoice", resp);
 
           if (resp.result) {
@@ -456,9 +393,7 @@ class LnurlPay {
 
             let lnurlPayRequestEntity: LnurlPayRequestEntity;
             try {
-              lnurlPayRequestEntity = await this._lnurlDB.saveLnurlPayRequest(
-                data as LnurlPayRequestEntity
-              );
+              lnurlPayRequestEntity = await this._lnurlDB.saveLnurlPayRequest(data as LnurlPayRequestEntity);
             } catch (ex) {
               logger.debug("ex:", ex);
 
@@ -471,10 +406,7 @@ class LnurlPay {
             }
 
             if (lnurlPayRequestEntity && lnurlPayRequestEntity.bolt11) {
-              logger.debug(
-                "LnurlPay.createLnurlPayRequest, lnurlPayRequest created:",
-                lnurlPayRequestEntity
-              );
+              logger.debug("LnurlPay.createLnurlPayRequest, lnurlPayRequest created:", lnurlPayRequestEntity);
 
               response = {
                 pr: lnurlPayRequestEntity.bolt11,
@@ -482,9 +414,7 @@ class LnurlPay {
               };
             } else {
               // LnurlPayRequest not created
-              logger.debug(
-                "LnurlPay.createLnurlPayRequest, LnurlPayRequest not created."
-              );
+              logger.debug("LnurlPay.createLnurlPayRequest, LnurlPayRequest not created.");
 
               response = {
                 status: "ERROR",
@@ -499,9 +429,7 @@ class LnurlPay {
           }
         } else {
           // There is an error with inputs
-          logger.debug(
-            "LnurlPay.createLnurlPayRequest, there is an error with inputs."
-          );
+          logger.debug("LnurlPay.createLnurlPayRequest, there is an error with inputs.");
 
           response = {
             status: "ERROR",
@@ -529,20 +457,13 @@ class LnurlPay {
   /**
    * Delete a payRequest, for instance if the LNPay Address is deleted.
    */
-  async deleteLnurlPayRequest(
-    lnurlPayRequestId: number
-  ): Promise<IRespLnurlPayRequest> {
+  async deleteLnurlPayRequest(lnurlPayRequestId: number): Promise<IRespLnurlPayRequest> {
     const result: IRespLnurlPayRequest = await this._lock.acquire(
       "modifLnurlPayRequest",
       async (): Promise<IRespLnurlPayRequest> => {
-        logger.debug(
-          "acquired lock modifLnurlPayRequest in deleteLnurlPayRequest"
-        );
+        logger.debug("acquired lock modifLnurlPayRequest in deleteLnurlPayRequest");
 
-        logger.info(
-          "LnurlPay.deleteLnurlPayRequest, lnurlPayRequestId:",
-          lnurlPayRequestId
-        );
+        logger.info("LnurlPay.deleteLnurlPayRequest, lnurlPayRequestId:", lnurlPayRequestId);
 
         const response: IRespLnurlPayRequest = {};
 
@@ -550,38 +471,25 @@ class LnurlPay {
           // Inputs are valid.
           logger.debug("LnurlPay.deleteLnurlPayRequest, Inputs are valid.");
 
-          let lnurlPayRequestEntity = await this._lnurlDB.getLnurlPayRequestById(
-            lnurlPayRequestId
-          );
+          let lnurlPayRequestEntity = await this._lnurlDB.getLnurlPayRequestById(lnurlPayRequestId);
 
           if (lnurlPayRequestEntity == null) {
-            logger.debug(
-              "LnurlPay.deleteLnurlPayRequest, lnurlPayRequest not found"
-            );
+            logger.debug("LnurlPay.deleteLnurlPayRequest, lnurlPayRequest not found");
 
             response.error = {
               code: ErrorCodes.InvalidRequest,
               message: "LnurlPayRequest not found",
             };
-          } else if (
-            !lnurlPayRequestEntity.deleted &&
-            !lnurlPayRequestEntity.paid
-          ) {
-            logger.debug(
-              "LnurlPay.deleteLnurlPayRequest, unpaid lnurlPayRequestEntity found for this lnurlPayRequestId!"
-            );
+          } else if (!lnurlPayRequestEntity.deleted && !lnurlPayRequestEntity.paid) {
+            logger.debug("LnurlPay.deleteLnurlPayRequest, unpaid lnurlPayRequestEntity found for this lnurlPayRequestId!");
 
             lnurlPayRequestEntity.deleted = true;
-            lnurlPayRequestEntity = await this._lnurlDB.saveLnurlPayRequest(
-              lnurlPayRequestEntity
-            );
+            lnurlPayRequestEntity = await this._lnurlDB.saveLnurlPayRequest(lnurlPayRequestEntity);
 
             response.result = lnurlPayRequestEntity;
           } else {
             // LnurlPayRequest already deactivated
-            logger.debug(
-              "LnurlPay.deleteLnurlPayRequest, LnurlPayRequest already deactivated."
-            );
+            logger.debug("LnurlPay.deleteLnurlPayRequest, LnurlPayRequest already deactivated.");
 
             response.error = {
               code: ErrorCodes.InvalidRequest,
@@ -590,9 +498,7 @@ class LnurlPay {
           }
         } else {
           // There is an error with inputs
-          logger.debug(
-            "LnurlPay.deleteLnurlPayRequest, there is an error with inputs."
-          );
+          logger.debug("LnurlPay.deleteLnurlPayRequest, there is an error with inputs.");
 
           response.error = {
             code: ErrorCodes.InvalidRequest,
@@ -607,13 +513,8 @@ class LnurlPay {
     return result;
   }
 
-  async getLnurlPayRequest(
-    lnurlPayRequestId: number
-  ): Promise<IRespLnurlPayRequest> {
-    logger.info(
-      "LnurlPay.getLnurlPayRequest, lnurlPayRequestId:",
-      lnurlPayRequestId
-    );
+  async getLnurlPayRequest(lnurlPayRequestId: number): Promise<IRespLnurlPayRequest> {
+    logger.info("LnurlPay.getLnurlPayRequest, lnurlPayRequestId:", lnurlPayRequestId);
 
     const response: IRespLnurlPayRequest = {};
 
@@ -621,14 +522,10 @@ class LnurlPay {
       // Inputs are valid.
       logger.debug("LnurlPay.getLnurlPayRequest, Inputs are valid.");
 
-      const lnurlPayRequestEntity = await this._lnurlDB.getLnurlPayRequestById(
-        lnurlPayRequestId
-      );
+      const lnurlPayRequestEntity = await this._lnurlDB.getLnurlPayRequestById(lnurlPayRequestId);
 
       if (lnurlPayRequestEntity != null) {
-        logger.debug(
-          "LnurlPay.getLnurlPayRequest, lnurlPayRequestEntity found for this lnurlPayRequestId!"
-        );
+        logger.debug("LnurlPay.getLnurlPayRequest, lnurlPayRequestEntity found for this lnurlPayRequestId!");
 
         response.result = lnurlPayRequestEntity;
       } else {
@@ -642,9 +539,7 @@ class LnurlPay {
       }
     } else {
       // There is an error with inputs
-      logger.debug(
-        "LnurlPay.getLnurlPayRequest, there is an error with inputs."
-      );
+      logger.debug("LnurlPay.getLnurlPayRequest, there is an error with inputs.");
 
       response.error = {
         code: ErrorCodes.InvalidRequest,
@@ -658,43 +553,28 @@ class LnurlPay {
   /**
    * This is called by CN when an LN invoice is paid.
    */
-  async lnurlPayRequestCallback(
-    reqCallback: IReqLnurlPayRequestCallback
-  ): Promise<IRespLnurlPayRequestCallback> {
+  async lnurlPayRequestCallback(reqCallback: IReqLnurlPayRequestCallback): Promise<IRespLnurlPayRequestCallback> {
     const result: IRespLnurlPayRequestCallback = await this._lock.acquire(
       "modifLnurlPayRequestCallback",
       async (): Promise<IRespLnurlPayRequestCallback> => {
-        logger.debug(
-          "acquired lock modifLnurlPayRequestCallback in lnurlPayRequestCallback"
-        );
+        logger.debug("acquired lock modifLnurlPayRequestCallback in lnurlPayRequestCallback");
 
         const response: IRespLnurlPayRequestCallback = {};
 
-        let lnurlPayRequestEntity = await this._lnurlDB.getLnurlPayRequestByLabel(
-          reqCallback.bolt11Label
-        );
+        let lnurlPayRequestEntity = await this._lnurlDB.getLnurlPayRequestByLabel(reqCallback.bolt11Label);
 
         if (lnurlPayRequestEntity) {
           lnurlPayRequestEntity.paid = true;
 
-          lnurlPayRequestEntity = await this._lnurlDB.saveLnurlPayRequest(
-            lnurlPayRequestEntity
-          );
+          lnurlPayRequestEntity = await this._lnurlDB.saveLnurlPayRequest(lnurlPayRequestEntity);
 
-          const lnurlPayEntity = await this._lnurlDB.getLnurlPayById(
-            lnurlPayRequestEntity.lnurlPayEntityId
-          );
+          const lnurlPayEntity = await this._lnurlDB.getLnurlPayById(lnurlPayRequestEntity.lnurlPayEntityId);
 
           if (lnurlPayEntity && lnurlPayEntity.webhookUrl) {
-            const cbResponse = await Utils.post(
-              lnurlPayEntity.webhookUrl,
-              lnurlPayRequestEntity
-            );
+            const cbResponse = await Utils.post(lnurlPayEntity.webhookUrl, lnurlPayRequestEntity);
 
             if (cbResponse.status >= 200 && cbResponse.status < 400) {
-              logger.debug(
-                "LnurlWithdraw.lnurlPayRequestCallback, paid, webhook called back"
-              );
+              logger.debug("LnurlWithdraw.lnurlPayRequestCallback, paid, webhook called back");
 
               lnurlPayRequestEntity.paidCalledbackTs = new Date();
               await this._lnurlDB.saveLnurlPayRequest(lnurlPayRequestEntity);

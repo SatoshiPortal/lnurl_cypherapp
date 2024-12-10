@@ -2,10 +2,7 @@ import IBatcherIdent from "./IBatcherIdent";
 import IOutput from "./IOutput";
 import IBatchState from "./IBatchState";
 
-export default interface IAddToBatchResult
-  extends IBatcherIdent,
-    IOutput,
-    IBatchState {
+export default interface IAddToBatchResult extends IBatcherIdent, IOutput, IBatchState {
   // - batcherId, the id of the batcher
   // - outputId, the id of the added output
   // - nbOutputs, the number of outputs currently in the batch

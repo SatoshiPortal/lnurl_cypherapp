@@ -2,12 +2,7 @@ import IReqCreateLnurlPay from "../types/IReqCreateLnurlPay";
 
 class CreateLnurlPayValidator {
   static validateRequest(request: IReqCreateLnurlPay): boolean {
-    if (
-      !!request.minMsatoshi &&
-      !!request.maxMsatoshi &&
-      request.minMsatoshi > 0 &&
-      request.maxMsatoshi >= request.minMsatoshi
-    ) {
+    if (!!request.minMsatoshi && !!request.maxMsatoshi && request.minMsatoshi > 0 && request.maxMsatoshi >= request.minMsatoshi) {
       // Mandatory maxMsatoshi at least equal to minMsatoshi
       return true;
     }

@@ -21,10 +21,7 @@ class Scheduler {
     logger.info("Scheduler.checkCallbacksTimeout");
 
     scheduler._cbStartedAt = new Date().getTime();
-    logger.debug(
-      "Scheduler.checkCallbacksTimeout this._cbStartedAt =",
-      scheduler._cbStartedAt
-    );
+    logger.debug("Scheduler.checkCallbacksTimeout this._cbStartedAt =", scheduler._cbStartedAt);
 
     // lnurlWithdraw.processCallbacks(undefined);
     const postdata = {
@@ -33,10 +30,7 @@ class Scheduler {
     };
 
     Utils.post(
-      scheduler._lnurlConfig.URL_API_SERVER +
-        ":" +
-        scheduler._lnurlConfig.URL_API_PORT +
-        scheduler._lnurlConfig.URL_API_CTX,
+      scheduler._lnurlConfig.URL_API_SERVER + ":" + scheduler._lnurlConfig.URL_API_PORT + scheduler._lnurlConfig.URL_API_CTX,
       postdata
     ).then((res) => {
       logger.debug("Scheduler.checkCallbacksTimeout, res=", res);
@@ -47,10 +41,7 @@ class Scheduler {
     logger.info("Scheduler.checkFallbacksTimeout");
 
     scheduler._fbStartedAt = new Date().getTime();
-    logger.debug(
-      "Scheduler.checkFallbacksTimeout this._fbStartedAt =",
-      scheduler._fbStartedAt
-    );
+    logger.debug("Scheduler.checkFallbacksTimeout this._fbStartedAt =", scheduler._fbStartedAt);
 
     // lnurlWithdraw.processFallbacks();
     const postdata = {
@@ -59,10 +50,7 @@ class Scheduler {
     };
 
     Utils.post(
-      scheduler._lnurlConfig.URL_API_SERVER +
-        ":" +
-        scheduler._lnurlConfig.URL_API_PORT +
-        scheduler._lnurlConfig.URL_API_CTX,
+      scheduler._lnurlConfig.URL_API_SERVER + ":" + scheduler._lnurlConfig.URL_API_PORT + scheduler._lnurlConfig.URL_API_CTX,
       postdata
     ).then((res) => {
       logger.debug("Scheduler.checkFallbacksTimeout, res=", res);

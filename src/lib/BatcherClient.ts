@@ -53,18 +53,9 @@ class BatcherClient {
         if (error.response) {
           // The request was made and the server responded with a status code
           // that falls out of the range of 2xx
-          logger.info(
-            "BatcherClient._post :: error.response.data:",
-            error.response.data
-          );
-          logger.info(
-            "BatcherClient._post :: error.response.status:",
-            error.response.status
-          );
-          logger.info(
-            "BatcherClient._post :: error.response.headers:",
-            error.response.headers
-          );
+          logger.info("BatcherClient._post :: error.response.data:", error.response.data);
+          logger.info("BatcherClient._post :: error.response.status:", error.response.status);
+          logger.info("BatcherClient._post :: error.response.headers:", error.response.headers);
 
           return { status: error.response.status, data: error.response.data };
         } else if (error.request) {
@@ -120,18 +111,9 @@ class BatcherClient {
         if (error.response) {
           // The request was made and the server responded with a status code
           // that falls out of the range of 2xx
-          logger.info(
-            "BatcherClient._get :: error.response.data:",
-            error.response.data
-          );
-          logger.info(
-            "BatcherClient._get :: error.response.status:",
-            error.response.status
-          );
-          logger.info(
-            "BatcherClient._get :: error.response.headers:",
-            error.response.headers
-          );
+          logger.info("BatcherClient._get :: error.response.data:", error.response.data);
+          logger.info("BatcherClient._get :: error.response.status:", error.response.status);
+          logger.info("BatcherClient._get :: error.response.headers:", error.response.headers);
 
           return { status: error.response.status, data: error.response.data };
         } else if (error.request) {
@@ -160,9 +142,7 @@ class BatcherClient {
     }
   }
 
-  async queueForNextBatch(
-    batchRequestTO: IReqBatchRequest
-  ): Promise<IRespBatchRequest> {
+  async queueForNextBatch(batchRequestTO: IReqBatchRequest): Promise<IRespBatchRequest> {
     // {
     //   batcherId?: number;
     //   batcherLabel?: string;
@@ -194,12 +174,8 @@ class BatcherClient {
     } else {
       result = {
         error: {
-          code: response.data.error
-            ? response.data.error.code
-            : response.data.code,
-          message: response.data.error
-            ? response.data.error.message
-            : response.data.message,
+          code: response.data.error ? response.data.error.code : response.data.code,
+          message: response.data.error ? response.data.error.message : response.data.message,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as IResponseError<any>,
       } as IRespBatchRequest;

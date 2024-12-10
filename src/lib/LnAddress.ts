@@ -13,10 +13,7 @@ class LnAddress {
     return false;
   }
 
-  static async fetchBolt11(
-    address: string,
-    amount: number
-  ): Promise<string | false> {
+  static async fetchBolt11(address: string, amount: number): Promise<string | false> {
     const url = LnAddress.addressToUrl(address);
 
     if (url) {
