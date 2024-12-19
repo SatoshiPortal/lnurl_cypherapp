@@ -107,7 +107,7 @@ class LnurlWithdraw {
         "://" +
         this._lnurlConfig.LN_SERVICE_DOMAIN +
         ((this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "https" && this._lnurlConfig.LN_SERVICE_PORT === 443) ||
-        (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" && this._lnurlConfig.LN_SERVICE_PORT === 80)
+          (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" && this._lnurlConfig.LN_SERVICE_PORT === 80)
           ? ""
           : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
         this._lnurlConfig.LN_SERVICE_CTX +
@@ -285,8 +285,12 @@ class LnurlWithdraw {
         logger.info("LnurlWithdraw.lnServiceWithdrawRequest:", secretToken);
 
         let result: IRespLnServiceWithdrawRequest;
-        const lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawBySecret(secretToken);
-        logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, lnurlWithdrawEntity:", lnurlWithdrawEntity);
+        let lnurlWithdrawEntity;
+
+        if (secretToken && secretToken !== "") {
+          lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawBySecret(secretToken);
+          logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, lnurlWithdrawEntity:", lnurlWithdrawEntity);
+        }
 
         if (lnurlWithdrawEntity == null) {
           logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, invalid k1 value:");
@@ -311,7 +315,7 @@ class LnurlWithdraw {
                   "://" +
                   this._lnurlConfig.LN_SERVICE_DOMAIN +
                   ((this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "https" && this._lnurlConfig.LN_SERVICE_PORT === 443) ||
-                  (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" && this._lnurlConfig.LN_SERVICE_PORT === 80)
+                    (this._lnurlConfig.LN_SERVICE_SCHEME.toLowerCase() === "http" && this._lnurlConfig.LN_SERVICE_PORT === 80)
                     ? ""
                     : ":" + this._lnurlConfig.LN_SERVICE_PORT) +
                   this._lnurlConfig.LN_SERVICE_CTX +

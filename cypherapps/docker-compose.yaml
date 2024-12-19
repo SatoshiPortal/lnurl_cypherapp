@@ -36,7 +36,7 @@ services:
       - traefik.http.routers.lnurl.entrypoints=websecure
       - traefik.http.routers.lnurl.tls=true
       - traefik.http.routers.lnurl.service=lnurl
-      - traefik.http.routers.lnurl.middlewares=lnurl-redirectregex@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
+      - traefik.http.routers.lnurl.middlewares=lnurl-cors@docker,lnurl-redirectregex@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
       # - traefik.http.routers.lnurl.middlewares=lnurl-auth@docker,lnurl-allowedhosts@docker
 
       # PathPrefix won't be stripped because we don't want outsiders to access /api, only /lnurl/...
@@ -62,6 +62,8 @@ services:
       - traefik.http.middlewares.lnurl-ratelimit.ratelimit.period=1s
       - traefik.http.middlewares.lnurl-ratelimit.ratelimit.average=1
       - traefik.http.middlewares.lnurl-ratelimit.ratelimit.burst=2
+      - "traefik.http.middlewares.lnurl-cors.headers.accesscontrolallowmethods=GET,OPTIONS,POST"
+      - "traefik.http.middlewares.lnurl-cors.headers.accesscontrolalloworiginlist=*"
     deploy:
       labels:
         - traefik.enable=true
@@ -78,7 +80,7 @@ services:
         - traefik.http.routers.lnurl.entrypoints=websecure
         - traefik.http.routers.lnurl.tls=true
         - traefik.http.routers.lnurl.service=lnurl
-        - traefik.http.routers.lnurl.middlewares=lnurl-redirectregex@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
+        - traefik.http.routers.lnurl.middlewares=lnurl-cors@docker,lnurl-redirectregex@docker,lnurl-ratelimit@docker,lnurl-stripprefix@docker
         # - traefik.http.routers.lnurl.middlewares=lnurl-auth@docker,lnurl-allowedhosts@docker
 
         - traefik.http.routers.lnurl-onion.rule=PathPrefix(`/lnurl`)
@@ -103,6 +105,8 @@ services:
         - traefik.http.middlewares.lnurl-ratelimit.ratelimit.period=1s
         - traefik.http.middlewares.lnurl-ratelimit.ratelimit.average=1
         - traefik.http.middlewares.lnurl-ratelimit.ratelimit.burst=2
+        - "traefik.http.middlewares.lnurl-cors.headers.accesscontrolallowmethods=GET,OPTIONS,POST"
+        - "traefik.http.middlewares.lnurl-cors.headers.accesscontrolalloworiginlist=*"
       replicas: 1
       placement:
         constraints:
