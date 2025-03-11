@@ -747,6 +747,8 @@ class LnurlWithdraw {
             }
 
             if (
+              !lnurlWithdrawEntity.paid &&
+              !lnurlWithdrawEntity.deleted &&
               !lnurlWithdrawEntity.expiredCalledback &&
               lnurlWithdrawEntity.expiresAt &&
               lnurlWithdrawEntity.expiresAt < new Date()
