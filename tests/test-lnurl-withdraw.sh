@@ -983,8 +983,6 @@ fallback2() {
   # fallback batched (or voucher expired) callback
   start_callback_server
 
-  trace 2 "\n\n[fallback2] ${BPurple}Waiting for fallback batched callback...\n${Color_Off}"
-
   # User calls LN Service LNURL Withdraw Request
   local withdrawRequestResponse=$(call_lnservice_withdraw_request "${serviceUrl}")
   trace 3 "[fallback2] withdrawRequestResponse=${withdrawRequestResponse}"
@@ -997,20 +995,20 @@ fallback2() {
     trace 2 "[fallback2] EXPIRED!"
   fi
 
+  trace 2 "\n\n[fallback2] ${BPurple}Waiting for fallback batched callback or voucher expired callback...\n${Color_Off}"
+
   # Wait for the fallback batched (or voucher expired) callback
   wait
 
   # voucher expired (or fallback batched) callback
   start_callback_server
 
-  # fallback paid callback
-  start_callback_server
   # 0-conf callback
   start_callback_server ${zeroconfport} 2
 
-  trace 2 "\n\n[fallback2] ${BPurple}Waiting for fallback execution and the 0-conf callback...\n${Color_Off}"
+  trace 2 "\n\n[fallback2] ${BPurple}Waiting for fallback batched or voucher expired callback and the batch 0-conf callback...\n${Color_Off}"
 
-  # Wait for the fallback paid, 0-conf callbacks and voucher expired (or fallback batched) callbacks
+  # Wait for the 0-conf callbacks and fallback batched or voucher expired callback
   wait
 
   # 1-conf callback
