@@ -3,7 +3,7 @@ ARG ARCH="all"
 
 #--------------------------------------------------------------
 
-FROM node:24.8.0 as build-base-all
+FROM node:24.22.1 AS build-base-all
 
 WORKDIR /lnurl
 
@@ -24,7 +24,7 @@ RUN npm install
 
 # This stage will only be used when building the image with build-arg ARCH=arm32
 
-FROM node:24.8.0 as build-base-arm32
+FROM node:24.22.1 AS build-base-arm32
 
 WORKDIR /lnurl
 
