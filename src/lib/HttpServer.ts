@@ -313,18 +313,23 @@ class HttpServer {
       // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX,
       async (req, res) => {
-        logger.info(this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX + ":", req.query);
+        try {
+          logger.info(this._lnurlConfig.LN_SERVICE_WITHDRAW_CTX + ":", req.query);
 
-        const response = await this._lnurlWithdraw.lnServiceWithdraw({
-          k1: req.query.k1,
-          pr: req.query.pr,
-          balanceNotify: req.query.balanceNotify,
-        } as IReqLnurlWithdraw);
+          const response = await this._lnurlWithdraw.lnServiceWithdraw({
+            k1: req.query.k1,
+            pr: req.query.pr,
+            balanceNotify: req.query.balanceNotify,
+          } as IReqLnurlWithdraw);
 
-        if (response.status === "ERROR") {
-          res.status(400).json(response);
-        } else {
-          res.status(200).json(response);
+          if (response.status === "ERROR") {
+            res.status(400).json(response);
+          } else {
+            res.status(200).json(response);
+          }
+        } catch (error) {
+          logger.error("LNURL withdraw failed:", error);
+          res.status(500).json({ status: "ERROR", reason: "Internal server error" });
         }
       }
     );
