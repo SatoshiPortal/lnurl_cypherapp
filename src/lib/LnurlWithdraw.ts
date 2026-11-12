@@ -687,7 +687,7 @@ class LnurlWithdraw {
 
         let response;
         let postdata = {};
-        lnurlWithdrawEntitys.forEach(async (lnurlWithdrawEntity) => {
+        lnurlWithdrawEntitys.map(async (lnurlWithdrawEntity) => {
           logger.debug("LnurlWithdraw.processCallbacks, lnurlWithdrawEntity=", lnurlWithdrawEntity);
 
           if (!lnurlWithdrawEntity.deleted && lnurlWithdrawEntity.webhookUrl && lnurlWithdrawEntity.webhookUrl.length > 0) {
@@ -772,9 +772,9 @@ class LnurlWithdraw {
               }
             }
           }
-        });
+        }).forEach((task) => task.catch((error) => logger.error("processCallbacks task failed:", error)));
       }
-    );
+    ).catch((error) => logger.error("processCallbacks failed:", error));
     logger.debug("released lock processCallbacks in processCallbacks");
   }
 
@@ -789,7 +789,7 @@ class LnurlWithdraw {
         const lnurlWithdrawEntitys = await this._lnurlDB.getFallbackLnurlWithdraws();
         logger.debug("LnurlWithdraw.processFallbacks, lnurlWithdrawEntitys=", lnurlWithdrawEntitys);
 
-        lnurlWithdrawEntitys.forEach(async (lnurlWithdrawEntity) => {
+        lnurlWithdrawEntitys.map(async (lnurlWithdrawEntity) => {
           logger.debug("LnurlWithdraw.processFallbacks, lnurlWithdrawEntity=", lnurlWithdrawEntity);
 
           let proceedToFallback = true;
@@ -884,9 +884,9 @@ class LnurlWithdraw {
               }
             }
           }
-        });
+        }).forEach((task) => task.catch((error) => logger.error("processFallbacks task failed:", error)));
       }
-    );
+    ).catch((error) => logger.error("processFallbacks failed:", error));
     logger.debug("released lock processFallbacks in processFallbacks");
   }
 

@@ -23,6 +23,15 @@ import IReqUpdateLnurlPay from "../types/IReqUpdateLnurlPay";
 import IRespPayLnAddress from "../types/IRespPayLnAddress";
 import { IReqPayLnAddress } from "../types/IReqPayLnAddress";
 
+// Express 4 does not handle rejected async route handlers.
+const asyncHandler = (handler: express.RequestHandler): express.RequestHandler => (req, res, next) => {
+  Promise.resolve(handler(req, res, next)).catch((error) => {
+    logger.error("HTTP request failed:", error);
+    if (res.headersSent) return next(error);
+    res.status(500).json({ status: "ERROR", reason: "Internal server error" });
+  });
+};
+
 class HttpServer {
   // Create a new express application instance
   private readonly _httpServer: express.Application = express();
@@ -144,7 +153,7 @@ class HttpServer {
 
     this.setup();
 
-    this._httpServer.post(this._lnurlConfig.URL_API_CTX, async (req, res) => {
+    this._httpServer.post(this._lnurlConfig.URL_API_CTX, asyncHandler(async (req, res) => {
       logger.debug(this._lnurlConfig.URL_API_CTX);
 
       const reqMessage: IRequestMessage = req.body;
@@ -289,13 +298,13 @@ class HttpServer {
       } else {
         res.status(200).json(response);
       }
-    });
+    }));
 
     // LN Service LNURL Withdraw Request
     this._httpServer.get(
       // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX,
-      async (req, res) => {
+      asyncHandler(async (req, res) => {
         logger.info(this._lnurlConfig.LN_SERVICE_WITHDRAW_REQUEST_CTX + ":", req.query);
 
         const response: IRespLnServiceWithdrawRequest = await this._lnurlWithdraw.lnServiceWithdrawRequest(req.query.s as string);
@@ -305,7 +314,7 @@ class HttpServer {
         } else {
           res.status(200).json(response);
         }
-      }
+      })
     );
 
     // LN Service LNURL Withdraw
@@ -338,7 +347,7 @@ class HttpServer {
     this._httpServer.get(
       // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX + "/:externalId",
-      async (req, res) => {
+      asyncHandler(async (req, res) => {
         logger.info(this._lnurlConfig.LN_SERVICE_PAY_SPECS_CTX + ":", req.params);
 
         const response = await this._lnurlPay.lnServicePaySpecs({
@@ -350,11 +359,11 @@ class HttpServer {
         } else {
           res.status(200).json(response);
         }
-      }
+      })
     );
 
     // LN Service LNURL Pay specs (step 3) lightning address format
-    this._httpServer.get("/.well-known/lnurlp/:externalId", async (req, res) => {
+    this._httpServer.get("/.well-known/lnurlp/:externalId", asyncHandler(async (req, res) => {
       logger.info("/.well-known/lnurlp/:", req.params);
 
       const response = await this._lnurlPay.lnServicePaySpecs({
@@ -366,13 +375,13 @@ class HttpServer {
       } else {
         res.status(200).json(response);
       }
-    });
+    }));
 
     // LN Service LNURL Pay request (step 5)
     this._httpServer.get(
       // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX + "/:externalId",
-      async (req, res) => {
+      asyncHandler(async (req, res) => {
         logger.info(this._lnurlConfig.LN_SERVICE_PAY_REQUEST_CTX + ":", req.params);
 
         const response = await this._lnurlPay.lnServicePayRequest({
@@ -385,14 +394,14 @@ class HttpServer {
         } else {
           res.status(200).json(response);
         }
-      }
+      })
     );
 
     // LN Service LNURL Pay request callback (called by CN when bolt11 paid)
     this._httpServer.post(
       // this._lnurlConfig.LN_SERVICE_CTX + // Stripped by traefik
       this._lnurlConfig.URL_CTX_PAY_WEBHOOKS + "/:label",
-      async (req, res) => {
+      asyncHandler(async (req, res) => {
         logger.info(this._lnurlConfig.URL_CTX_PAY_WEBHOOKS + ":", req.params);
 
         const response = await this._lnurlPay.lnurlPayRequestCallback({
@@ -404,10 +413,10 @@ class HttpServer {
         } else {
           res.status(200).json(response);
         }
-      }
+      })
     );
 
-    this._httpServer.post(this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS, async (req, res) => {
+    this._httpServer.post(this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS, asyncHandler(async (req, res) => {
       logger.info(this._lnurlConfig.URL_CTX_WITHDRAW_WEBHOOKS + ":", req.body);
 
       const response = await this._lnurlWithdraw.processBatchWebhook(req.body);
@@ -417,7 +426,7 @@ class HttpServer {
       } else {
         res.status(200).json(response);
       }
-    });
+    }));
 
     this._httpServer.listen(this._lnurlConfig.URL_API_PORT, () => {
       logger.info("Express HTTP server listening on port:", this._lnurlConfig.URL_API_PORT);
