@@ -362,6 +362,7 @@ class LnurlWithdraw {
 
     if (resp.result) {
       lnurlWithdrawEntity.bolt11 = bolt11;
+      lnurlWithdrawEntity = await this._lnurlDB.saveLnurlWithdraw(lnurlWithdrawEntity);
 
       const lnPayParams = {
         bolt11: bolt11,
@@ -495,7 +496,7 @@ class LnurlWithdraw {
 
       if (nonfailedpay !== undefined) {
         paymentStatus = (nonfailedpay as any).status;
-      } else {
+      } else if (resp.result.pays.every((pay) => (pay as any).status === "failed")) {
         paymentStatus = "failed";
       }
 
@@ -511,18 +512,17 @@ class LnurlWithdraw {
       if (paystatus.error) {
         // Error, should not happen, something's wrong, let's get out of here
         logger.debug("LnurlWithdraw.lnFetchPaymentStatus, lnPayStatus errored...");
-      } else if (paystatus.result) {
+      } else if (paystatus.result && paystatus.result.pay.every((pay) => pay.attempts.length > 0)) {
         logger.debug("LnurlWithdraw.lnFetchPaymentStatus, lnPayStatus success...");
 
         // We parse paystatus result
         // pay[] is an array of payments
         // attempts[] is an array of attempts for each payment
         // As soon as there's a "success" field in attemps, payment succeeded!
-        // If the last attempt doesn't have a "failure" field, it means there's a pending attempt
-        // If the last attempt has a "failure" field, it means payment failed.
+        // Only explicit failure of every attempt permits a retry; pending attempts take precedence.
         let nbAttempts;
         let success = false;
-        let failure = null;
+        let failure: boolean | null = null;
         paystatus.result.pay.forEach((pay) => {
           nbAttempts = 0;
           pay.attempts.forEach((attempt) => {
@@ -530,7 +530,7 @@ class LnurlWithdraw {
               success = true;
               return;
             } else if (attempt.failure) {
-              failure = true;
+              if (failure !== false) failure = true;
             } else {
               failure = false;
             }
@@ -555,7 +555,7 @@ class LnurlWithdraw {
           paymentStatus = "complete";
         } else if (failure === false) {
           paymentStatus = "pending";
-        } else {
+        } else if (failure === true) {
           paymentStatus = "failed";
         }
 
