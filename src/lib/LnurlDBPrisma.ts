@@ -42,8 +42,15 @@ class LnurlDBPrisma {
     return lw as LnurlWithdrawEntity;
   }
 
+  // Use findFirst instead of findUnique to avoid batching crash issues with Prisma. 
+  // param guard checks required as findFirst can ignore undefined filters and 
+  // return an unrelated row, whereas findUnique rejects invalid keys.
   async getLnurlWithdrawBySecret(secretToken: string): Promise<LnurlWithdrawEntity> {
-    const lw = await this._db?.lnurlWithdrawEntity.findUnique({
+    if (typeof secretToken !== "string") {
+      throw new TypeError("Invalid secretToken");
+    }
+
+    const lw = await this._db?.lnurlWithdrawEntity.findFirst({
       where: { secretToken },
     });
 
@@ -51,7 +58,11 @@ class LnurlDBPrisma {
   }
 
   async getLnurlWithdrawByBatchRequestId(batchRequestId: number): Promise<LnurlWithdrawEntity> {
-    const lw = await this._db?.lnurlWithdrawEntity.findUnique({
+    if (!Number.isInteger(batchRequestId)) {
+      throw new TypeError("Invalid batchRequestId");
+    }
+
+    const lw = await this._db?.lnurlWithdrawEntity.findFirst({
       where: { batchRequestId },
     });
 
@@ -59,7 +70,11 @@ class LnurlDBPrisma {
   }
 
   async getLnurlWithdraw(lnurlWithdrawEntity: LnurlWithdrawEntity): Promise<LnurlWithdrawEntity> {
-    const lw = await this._db?.lnurlWithdrawEntity.findUnique({
+    if (!Number.isInteger(lnurlWithdrawEntity?.lnurlWithdrawId)) {
+      throw new TypeError("Invalid lnurlWithdrawId");
+    }
+
+    const lw = await this._db?.lnurlWithdrawEntity.findFirst({
       where: { lnurlWithdrawId: lnurlWithdrawEntity.lnurlWithdrawId },
     });
 
@@ -67,8 +82,12 @@ class LnurlDBPrisma {
   }
 
   async getLnurlWithdrawById(lnurlWithdrawId: number): Promise<LnurlWithdrawEntity> {
-    const lw = await this._db?.lnurlWithdrawEntity.findUnique({
-      where: { lnurlWithdrawId: lnurlWithdrawId },
+    if (!Number.isInteger(lnurlWithdrawId)) {
+      throw new TypeError("Invalid lnurlWithdrawId");
+    }
+
+    const lw = await this._db?.lnurlWithdrawEntity.findFirst({
+      where: { lnurlWithdrawId },
     });
 
     return lw as LnurlWithdrawEntity;
@@ -141,15 +160,23 @@ class LnurlDBPrisma {
   }
 
   async getLnurlPayById(lnurlPayId: number): Promise<LnurlPayEntity> {
-    const lw = await this._db?.lnurlPayEntity.findUnique({
-      where: { lnurlPayId: lnurlPayId },
+    if (!Number.isInteger(lnurlPayId)) {
+      throw new TypeError("Invalid lnurlPayId");
+    }
+
+    const lw = await this._db?.lnurlPayEntity.findFirst({
+      where: { lnurlPayId },
     });
 
     return lw as LnurlPayEntity;
   }
 
   async getLnurlPayByExternalId(externalId: string): Promise<LnurlPayEntity> {
-    const lw = await this._db?.lnurlPayEntity.findUnique({
+    if (typeof externalId !== "string") {
+      throw new TypeError("Invalid externalId");
+    }
+
+    const lw = await this._db?.lnurlPayEntity.findFirst({
       where: { externalId },
     });
 
@@ -174,15 +201,23 @@ class LnurlDBPrisma {
   }
 
   async getLnurlPayRequestById(lnurlPayRequestId: number): Promise<LnurlPayRequestEntity> {
-    const lw = await this._db?.lnurlPayRequestEntity.findUnique({
-      where: { lnurlPayRequestId: lnurlPayRequestId },
+    if (!Number.isInteger(lnurlPayRequestId)) {
+      throw new TypeError("Invalid lnurlPayRequestId");
+    }
+
+    const lw = await this._db?.lnurlPayRequestEntity.findFirst({
+      where: { lnurlPayRequestId },
     });
 
     return lw as LnurlPayRequestEntity;
   }
 
   async getLnurlPayRequestByLabel(bolt11Label: string): Promise<LnurlPayRequestEntity> {
-    const lw = await this._db?.lnurlPayRequestEntity.findUnique({
+    if (typeof bolt11Label !== "string") {
+      throw new TypeError("Invalid bolt11Label");
+    }
+
+    const lw = await this._db?.lnurlPayRequestEntity.findFirst({
       where: { bolt11Label },
     });
 

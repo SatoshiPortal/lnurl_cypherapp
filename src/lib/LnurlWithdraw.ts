@@ -287,7 +287,7 @@ class LnurlWithdraw {
         let result: IRespLnServiceWithdrawRequest;
         let lnurlWithdrawEntity;
 
-        if (secretToken && secretToken !== "") {
+        if (typeof secretToken === "string" && secretToken !== "") {
           lnurlWithdrawEntity = await this._lnurlDB.getLnurlWithdrawBySecret(secretToken);
           logger.debug("LnurlWithdraw.lnServiceWithdrawRequest, lnurlWithdrawEntity:", lnurlWithdrawEntity);
         }
