@@ -225,7 +225,7 @@ class HttpServer {
         }
 
         case "deleteLnurlPayRequest": {
-          const result: IRespLnurlPayRequest = await this.getLnurlPayRequest(reqMessage.params || {});
+          const result: IRespLnurlPayRequest = await this.deleteLnurlPayRequest(reqMessage.params || {});
           response.result = result.result;
           response.error = result.error;
           break;
